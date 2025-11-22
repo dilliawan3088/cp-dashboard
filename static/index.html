@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poultry Processing Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=6">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/charts.js?v=12"></script>
+    <script src="/static/app.js?v=3"></script>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="animated-background">
+        <canvas id="particleCanvas"></canvas>
+        <div class="gradient-overlay"></div>
+    </div>
+    
+    <!-- Floating Header -->
+    <header class="floating-header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div>
+                <h1>CP Bird Counter Analysis Dashboard</h1>
+                <p class="subtitle">Advanced Analytics & Performance Monitoring</p>
+            </div>
+        </div>
+        <div class="filter-controls">
+            <select class="filter-dropdown" id="filterDropdown">
+                <option value="7">7 days</option>
+                <option value="15">15 days</option>
+                <option value="30">30 days</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">
+            <div class="spinner-wrapper">
+                <div class="spinner"></div>
+            </div>
+            <p id="loadingText">Loading dashboard data...</p>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message" id="errorMessage" style="display: none;">
+            <i class="fas fa-exclamation-circle"></i>
+            <span id="errorText"></span>
+        </div>
+
+        <!-- KPIs Section -->
+        <section class="kpis-section" id="kpisSection" style="display: none;">
+            <div class="section-header">
+                <h2><i class="fas fa-tachometer-alt"></i> Key Performance Indicators</h2>
+                <p class="section-subtitle">Real-time metrics and insights</p>
+            </div>
+            <div class="kpi-cards">
+                <div class="kpi-card kpi-success">
+                    <div class="kpi-icon">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Total Delivered</h3>
+                        <div class="kpi-value" id="totalDelivered">0</div>
+                        <div class="kpi-label">D/O Quantity</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card kpi-info">
+                    <div class="kpi-icon">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Total Birds Counted</h3>
+                        <div class="kpi-value" id="totalBirdsCounted">0</div>
+                        <div class="kpi-label">Counter + DOA</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card" id="netDifferenceCard">
+                    <div class="kpi-icon">
+                        <i class="fas fa-balance-scale"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Net Difference</h3>
+                        <div class="kpi-value" id="netDifference">0</div>
+                        <div class="kpi-label">Counted - Delivered</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card kpi-danger">
+                    <div class="kpi-icon">
+                        <i class="fas fa-skull"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Total DOA</h3>
+                        <div class="kpi-value" id="totalDOA">0</div>
+                        <div class="kpi-label">Dead on Arrival</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card" id="doaPercentageCard">
+                    <div class="kpi-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>DOA %</h3>
+                        <div class="kpi-value" id="doaPercentage">0.00%</div>
+                        <div class="kpi-label">DOA / Counted</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card kpi-success-alt">
+                    <div class="kpi-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Total Slaughter</h3>
+                        <div class="kpi-value" id="totalSlaughter">0</div>
+                        <div class="kpi-label">Successfully Processed</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card" id="slaughterYieldCard">
+                    <div class="kpi-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Slaughter Yield %</h3>
+                        <div class="kpi-value" id="slaughterYieldPercentage">0.00%</div>
+                        <div class="kpi-label">Slaughter / Counted</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card kpi-warning">
+                    <div class="kpi-icon">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Total Non-Halal</h3>
+                        <div class="kpi-value" id="totalNonHalal">0</div>
+                        <div class="kpi-label">Rejected Birds</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visualizations Section -->
+        <section class="visualizations" id="visualizations" style="display: none;">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-pie"></i> Data Visualizations</h2>
+                <p class="section-subtitle">Interactive charts and insights</p>
+            </div>
+            
+            <div class="charts-grid">
+                <!-- 1. Variance Trends (Full Width) -->
+                <div class="chart-container chart-large">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-th"></i> Variance Trends</h3>
+                        <p>Variance intensity visualization across trucks (Green = Extra, Red = Missing)</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="varianceTrendsChart" width="800" height="350"></canvas>
+                    </div>
+                </div>
+
+                <!-- 2. Overall Net Difference (Full Width) -->
+                <div class="chart-container chart-large">
+                    <div class="chart-header">
+                        <h3 class="chart-section-header"><i class="fas fa-chart-pie"></i> Overall Net Difference</h3>
+                        <p>Net Difference and Extra Birds by Farm</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="overallChart" width="400" height="400"></canvas>
+                    </div>
+                </div>
+
+                <!-- 3. Death Rate by Truck (Full Width) -->
+                <div class="chart-container chart-large">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-skull"></i> Death Rate by Truck</h3>
+                        <p>DOA Count per Truck (Lollipop View)</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="deathByTruckChart" width="800" height="600"></canvas>
+                    </div>
+                </div>
+
+                <!-- 4. Farm Performance (Half Width - Left) -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-warehouse"></i> Farm Performance</h3>
+                        <p>Loss analysis by farm</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="farmLossChart" width="400" height="350"></canvas>
+                    </div>
+                </div>
+
+                <!-- 5. Truck Performance (Half Width - Right) -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-truck"></i> Truck Performance</h3>
+                        <p>Loss analysis by truck</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="truckLossChart" width="400" height="350"></canvas>
+                    </div>
+                </div>
+
+                <!-- 6. Overall Trend by Trucks (Full Width) -->
+                <div class="chart-container chart-large">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-line"></i> Overall Trend by Trucks</h3>
+                        <p>Performance metrics aggregated by truck</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="overallTrendTruckChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 7. Slaughter Yield per Farm (Half Width - Left) -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-percentage"></i> Slaughter Yield per Farm</h3>
+                        <p>Slaughter Yield % = (SUM(TOTAL SLAUGHTER) / SUM(Counter + DOA)) × 100</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="slaughterYieldChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 8. Missing Birds by Farm (Half Width - Right) -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Missing Birds by Farm</h3>
+                        <p>Missing/Extra birds percentage (Negative values = Extra Birds)</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="missingByFarmChart" width="400" height="350"></canvas>
+                    </div>
+                </div>
+                </div>
+
+                <!-- 9. Delivered vs Received per Farm (Full Width) -->
+                <div class="chart-container chart-large">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-warehouse"></i> Delivered vs Received per Farm</h3>
+                        <p>Missing Birds and Extra Birds by Farm</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="deliveredReceivedChart" width="800" height="400"></canvas>
+                    </div>
+                </div>
+
+                <!-- 10. Historical Trend by Date (Full Width) -->
+                <div class="chart-container chart-large">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-calendar-alt"></i> Historical Trend by Date</h3>
+                        <p>Performance metrics over time (aggregated by date)</p>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="historicalTrendDateChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- Truck-Wise Delivery & Alerts Section (Last Table) -->
+        <section class="truck-alerts-section" id="truckAlertsSection" style="display: none;">
+            <div class="section-header">
+                <h2><i class="fas fa-truck"></i> Truck-Wise Delivery & Alerts</h2>
+                <p class="section-subtitle">Detailed truck performance with alert status</p>
+            </div>
+            <div class="table-wrapper">
+                <table id="truckAlertsTable">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-truck"></i> Truck</th>
+                            <th><i class="fas fa-file-alt"></i> D/O No</th>
+                            <th><i class="fas fa-warehouse"></i> Farm</th>
+                            <th><i class="fas fa-boxes"></i> D/O Qty</th>
+                            <th><i class="fas fa-calculator"></i> Counter</th>
+                            <th><i class="fas fa-check-circle"></i> Slaughtered</th>
+                            <th><i class="fas fa-skull"></i> DOA</th>
+                            <th><i class="fas fa-ban"></i> Non-Halal</th>
+                            <th><i class="fas fa-plus"></i> Counter+DOA</th>
+                            <th><i class="fas fa-balance-scale"></i> Difference</th>
+                            <th><i class="fas fa-percentage"></i> Yield %</th>
+                            <th><i class="fas fa-exclamation-circle"></i> Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="truckAlertsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Historical Data Modal -->
+    <div class="modal" id="historicalModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-history"></i> Historical Data</h2>
+                <button class="modal-close" id="closeHistoricalModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="filter-controls">
+                    <label>
+                        <i class="fas fa-warehouse"></i> Filter by Farm:
+                        <select id="farmFilter">
+                            <option value="">All Farms</option>
+                        </select>
+                    </label>
+                    <label>
+                        <i class="fas fa-file-alt"></i> Filter by D/O:
+                        <select id="doFilter">
+                            <option value="">All D/O Numbers</option>
+                        </select>
+                    </label>
+                    <button class="btn-apply-filter" id="applyHistoricalFilter">Apply Filter</button>
+                </div>
+                <div class="chart-container chart-large">
+                    <div class="chart-wrapper">
+                        <canvas id="historicalTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
