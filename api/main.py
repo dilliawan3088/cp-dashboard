@@ -12,30 +12,40 @@ import os
 import shutil
 from datetime import datetime, timedelta
 
-from database import (
+
+from api.database import (
     init_db, get_db, Upload, RawData, Calculation, Summary, 
     TruckPerformance, FarmPerformance, ProcessingHistory, OverallSummary, HistoricalTrend, DATABASE_URL
 )
 import json
-from models import (
+from api.models import (
     UploadResponse, ProcessResponse, DataResponse, HistoryResponse,
     SummaryResponse, RawDataModel, CalculationModel, SummaryModel, HistoryItem,
     TruckPerformanceModel, FarmPerformanceModel, OverallSummaryModel, HistoricalTrendModel, HistoricalTrendsResponse
 )
-from excel_processor import process_excel_file
-from data_analyzer import analyze_data
+from api.excel_processor import process_excel_file
+from api.data_analyzer import analyze_data
 
 # Initialize FastAPI app
 app = FastAPI(title="Poultry Processing Dashboard API")
 
-# CORS middleware
+# CORS middleware - allow both localhost and 127.0.0.1
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:8001",
+        "http://127.0.0.1:8001",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "*"  # Allow all for development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for frontend
+app.mount("/static", StaticFiles(directory="public"), name="static")
 
 # Create uploads directory
 UPLOAD_DIR = "uploads"
@@ -637,7 +647,7 @@ async def process_file_internal(upload_id: int, db: Session):
 @app.get("/")
 async def root():
     """Root endpoint - redirect to dashboard"""
-    return FileResponse("static/index.html")
+    return FileResponse("public/index.html")
 
 
 @app.get("/files")
@@ -1207,7 +1217,7 @@ async def get_delivered_vs_received(
     } for c in calc_objs]
     
     # Use analyzer to calculate
-    from data_analyzer import DataAnalyzer
+    from api.data_analyzer import DataAnalyzer
     analyzer = DataAnalyzer()
     result = analyzer.get_delivered_vs_received_by_farm(raw_data_list, calculations)
     
@@ -1247,7 +1257,7 @@ async def get_slaughter_yield(
     } for c in calc_objs]
     
     # Use analyzer to calculate
-    from data_analyzer import DataAnalyzer
+    from api.data_analyzer import DataAnalyzer
     analyzer = DataAnalyzer()
     result = analyzer.get_slaughter_yield_by_farm(raw_data_list, calculations)
     

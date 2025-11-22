@@ -3,7 +3,10 @@
  * Fully automatic - no user interaction required
  */
     
-const API_BASE_URL = 'http://localhost:8001';
+// API Base URL - can be overridden by environment variable
+const API_BASE_URL = window.ENV_API_URL || 'http://localhost:8001';
+console.log('API Base URL:', API_BASE_URL);
+
 let currentUploadId = null;
 let chartInstances = {};
 let currentFilterDays = 7; // Default: 7 days

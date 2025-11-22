@@ -7,12 +7,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=6">
+    <link rel="stylesheet" href="/static/styles.css?v=9">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/static/charts.js?v=12"></script>
-    <script src="/static/app.js?v=3"></script>
+    
+    <!-- Environment Configuration -->
+    <script>
+        // Set API URL based on environment
+        // For local development: http://localhost:8001
+        // For production: set window.ENV_API_URL to your deployed backend URL
+        window.ENV_API_URL = window.ENV_API_URL || 'http://localhost:8001';
+    </script>
+    
+    <script src="/static/charts.js?v=16"></script>
+    <script src="/static/app.js?v=8"></script>
 </head>
 <body>
     <!-- Animated Background -->
