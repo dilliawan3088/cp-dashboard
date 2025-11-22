@@ -45,7 +45,18 @@ app.add_middleware(
 )
 
 # Mount static files for frontend
-app.mount("/static", StaticFiles(directory="public"), name="static")
+# Mount static files for frontend
+# Use absolute path to ensure it works on Vercel
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+public_dir = os.path.join(base_dir, "public")
+
+if os.path.exists(public_dir):
+    app.mount("/static", StaticFiles(directory=public_dir), name="static")
+else:
+    print(f"Warning: Public directory not found at {public_dir}")
+    # Try current directory as fallback
+    if os.path.exists("public"):
+        app.mount("/static", StaticFiles(directory="public"), name="static")
 
 # Create uploads directory
 # On Vercel, we must use /tmp
