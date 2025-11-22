@@ -63,8 +63,12 @@ async def startup_event():
     # On Vercel, copy the pre-populated database to /tmp if it doesn't exist there
     if IS_VERCEL:
         import shutil
-        source_db = "poultry_dashboard.db"
+        # Get absolute path to the source DB (assumed to be in project root)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        source_db = os.path.join(base_dir, "poultry_dashboard.db")
         target_db = "/tmp/poultry_dashboard.db"
+        
+        print(f"Looking for source DB at: {source_db}")
         
         if os.path.exists(source_db):
             if not os.path.exists(target_db):
@@ -75,7 +79,9 @@ async def startup_event():
                 except Exception as e:
                     print(f"Error copying database: {e}")
         else:
-            print(f"Warning: Source database {source_db} not found!")
+            print(f"Warning: Source database {source_db} not found! Current dir: {os.getcwd()}")
+            # List files to help debug
+            print(f"Files in {base_dir}: {os.listdir(base_dir)}")
 
     init_db()
     print("Database initialized!")

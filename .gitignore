@@ -21,9 +21,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-*.db
-*.sqlite
-*.sqlite3
+# *.db  <-- Commented out to allow DB deployment
+# *.sqlite
+# *.sqlite3
 uploads/
 .DS_Store
 .vscode/
