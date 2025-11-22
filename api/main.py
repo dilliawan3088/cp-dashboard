@@ -48,17 +48,42 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
 # Create uploads directory
-UPLOAD_DIR = "uploads"
+# On Vercel, we must use /tmp
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+if IS_VERCEL:
+    UPLOAD_DIR = "/tmp/uploads"
+else:
+    UPLOAD_DIR = "uploads"
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
+    # On Vercel, copy the pre-populated database to /tmp if it doesn't exist there
+    if IS_VERCEL:
+        import shutil
+        source_db = "poultry_dashboard.db"
+        target_db = "/tmp/poultry_dashboard.db"
+        
+        if os.path.exists(source_db):
+            if not os.path.exists(target_db):
+                print(f"Copying pre-populated database from {source_db} to {target_db}...")
+                try:
+                    shutil.copy2(source_db, target_db)
+                    print("Database copied successfully!")
+                except Exception as e:
+                    print(f"Error copying database: {e}")
+        else:
+            print(f"Warning: Source database {source_db} not found!")
+
     init_db()
     print("Database initialized!")
     
     # Automatically process all Excel files in uploads folder
-    await auto_process_files()
+    # On Vercel, we skip auto-processing if we already have data to avoid timeouts
+    if not IS_VERCEL:
+        await auto_process_files()
 
 
 def extract_date_from_filename(filename: str) -> Optional[datetime]:

@@ -10,7 +10,18 @@ import os
 Base = declarative_base()
 
 # Database file path
-DATABASE_URL = "sqlite:///./poultry_dashboard.db"
+import os
+
+# Check if running on Vercel
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+
+# Use /tmp directory for database on Vercel (writable), otherwise local directory
+if IS_VERCEL:
+    DB_FILE = "/tmp/poultry_dashboard.db"
+else:
+    DB_FILE = "./poultry_dashboard.db"
+
+DATABASE_URL = f"sqlite:///{DB_FILE}"
 
 # Create engine
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
