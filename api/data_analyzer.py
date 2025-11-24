@@ -15,6 +15,8 @@ class DataAnalyzer:
         """
         Calculate all metrics for a single row.
         
+
+
         
         Key calculations:
         - Total Birds Arrived = D/O Quantity
