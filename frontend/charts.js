@@ -1006,6 +1006,54 @@ function createFarmLossChart(farms, deliveredVsReceived = null) {
         
         window.dashboardApp.chartInstances.farmLossChart = chart;
         console.log('✅ Farm Performance chart created successfully with 3 bars!');
+
+        // Add scroll-triggered grow animation
+        setTimeout( () => {
+            const chartContainer = canvas.closest( '.chart-container' );
+            console.log( '🔍 Setting up Farm Performance animation observer' );
+
+            if ( chartContainer ) {
+                const observer = new IntersectionObserver( ( entries ) => {
+                    entries.forEach( entry => {
+                        if ( entry.isIntersecting ) {
+                            console.log( '🎬 Triggering Farm Performance grow animation!' );
+
+                            // Store all original values for all datasets
+                            const originalDatasets = chart.data.datasets.map( dataset => ( {
+                                label: dataset.label,
+                                data: [ ...dataset.data ]
+                            } ) );
+
+                            // Set all bars to zero
+                            chart.data.datasets.forEach( dataset => {
+                                dataset.data = dataset.data.map( () => 0 );
+                            } );
+                            chart.update( 'none' );
+
+                            // Animate to actual values
+                            setTimeout( () => {
+                                chart.data.datasets.forEach( ( dataset, i ) => {
+                                    dataset.data = originalDatasets[ i ].data;
+                                } );
+                                chart.update( {
+                                    duration: 3000,
+                                    easing: 'easeOutQuart'
+                                } );
+                                console.log( '✅ Farm Performance animation started!' );
+                            }, 100 );
+
+                            observer.unobserve( entry.target );
+                        }
+                    } );
+                }, {
+                    threshold: 0.9 // Trigger when 90% of chart is visible
+                } );
+
+                observer.observe( chartContainer );
+                console.log( '✅ Observer attached to Farm Performance chart' );
+            }
+        }, 500 );
+
         console.log('=== createFarmLossChart END ===');
     } catch (error) {
         console.error('❌ Error creating farm performance chart:', error);
@@ -1522,6 +1570,54 @@ function createTruckLossChart(trucks) {
         console.log('✅ Truck Performance GROUPED BAR chart created successfully!');
         console.log('Chart data points:', labels.length);
         console.log('Chart visible:', chart.canvas.offsetWidth > 0 && chart.canvas.offsetHeight > 0);
+
+        // Add scroll-triggered grow animation
+        setTimeout( () => {
+            const chartContainer = canvas.closest( '.chart-container' );
+            console.log( '🔍 Setting up Truck Performance animation observer' );
+
+            if ( chartContainer ) {
+                const observer = new IntersectionObserver( ( entries ) => {
+                    entries.forEach( entry => {
+                        if ( entry.isIntersecting ) {
+                            console.log( '🎬 Triggering Truck Performance grow animation!' );
+
+                            // Store all original values for all datasets
+                            const originalDatasets = chart.data.datasets.map( dataset => ( {
+                                label: dataset.label,
+                                data: [ ...dataset.data ]
+                            } ) );
+
+                            // Set all bars to zero
+                            chart.data.datasets.forEach( dataset => {
+                                dataset.data = dataset.data.map( () => 0 );
+                            } );
+                            chart.update( 'none' );
+
+                            // Animate to actual values
+                            setTimeout( () => {
+                                chart.data.datasets.forEach( ( dataset, i ) => {
+                                    dataset.data = originalDatasets[ i ].data;
+                                } );
+                                chart.update( {
+                                    duration: 3000,
+                                    easing: 'easeOutQuart'
+                                } );
+                                console.log( '✅ Truck Performance animation started!' );
+                            }, 100 );
+
+                            observer.unobserve( entry.target );
+                        }
+                    } );
+                }, {
+                    threshold: 0.9 // Trigger when 90% of chart is visible
+                } );
+
+                observer.observe( chartContainer );
+                console.log( '✅ Observer attached to Truck Performance chart' );
+            }
+        }, 500 );
+
         console.log('=== createTruckLossChart END ===');
     } catch (error) {
         console.error('❌ Error creating truck performance chart:', error);
@@ -1877,14 +1973,7 @@ function createDeathByTruckChart(trucks) {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: {
-                    duration: 2000,
-                    easing: 'easeOutQuart',
-                    delay: function(context) {
-                        if (!context || context.dataIndex === undefined || context.dataIndex === null) {
-                            return 0;
-                        }
-                        return context.dataIndex * 50;
-                    }
+                    duration: 0 // Disable initial animation
                 },
                 layout: {
                     padding: {
@@ -2057,9 +2146,7 @@ function createDeathByTruckChart(trucks) {
                 }
             }
         });
-        
-        // Plugin is already attached to this chart specifically
-        
+
         window.dashboardApp.chartInstances.deathByTruckChart = chart;
         console.log('✅ Death Rate by Truck LOLLIPOP chart created successfully!');
         console.log('=== createDeathByTruckChart END ===');
@@ -2210,6 +2297,53 @@ function createMissingByFarmChart(farms) {
     
     window.dashboardApp.chartInstances.missingByFarmChart = chart;
     console.log('=== Missing By Farm Chart Created (Dotted Line) ===');
+
+    // Add scroll-triggered line drawing animation
+    setTimeout( () => {
+        const chartContainer = canvas.closest( '.chart-container' );
+        console.log( '🔍 Setting up Missing Birds line drawing animation observer' );
+
+        if ( chartContainer ) {
+            const observer = new IntersectionObserver( ( entries ) => {
+                entries.forEach( entry => {
+                    if ( entry.isIntersecting ) {
+                        console.log( '🎬 Triggering Missing Birds line drawing animation!' );
+
+                        // Store original data
+                        const originalData = [ ...chart.data.datasets[ 0 ].data ];
+                        const totalPoints = originalData.length;
+
+                        // Start with empty data
+                        chart.data.datasets[ 0 ].data = [];
+                        chart.update( 'none' );
+
+                        // Animate drawing line from first to last farm
+                        const animationDuration = 2000; // 2 seconds
+                        const intervalTime = animationDuration / totalPoints;
+
+                        let currentIndex = 0;
+                        const drawInterval = setInterval( () => {
+                            if ( currentIndex < totalPoints ) {
+                                chart.data.datasets[ 0 ].data.push( originalData[ currentIndex ] );
+                                chart.update( 'none' );
+                                currentIndex++;
+                            } else {
+                                clearInterval( drawInterval );
+                                console.log( '✅ Line drawing animation completed!' );
+                            }
+                        }, intervalTime );
+
+                        observer.unobserve( entry.target );
+                    }
+                } );
+            }, {
+                threshold: 0.9 // Trigger when 90% of chart is visible
+            } );
+
+            observer.observe( chartContainer );
+            console.log( '✅ Observer attached to Missing Birds chart' );
+        }
+    }, 500 );
 }
 
 /**
@@ -2475,151 +2609,173 @@ function createSlaughterYieldChart(data) {
     });
     
     console.log('Chart type: DOUGHNUT');
-    const chart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: farms.map((farm, index) => `${farm} (${yields[index].toFixed(1)}%)`),
-            datasets: [{
-                label: 'Slaughter Yield %',
-                data: yields,
-                backgroundColor: backgroundColors,
-                borderColor: '#ffffff',
-                borderWidth: 3,
-                hoverBorderWidth: 5,
-                hoverOffset: 10
-            }]
-        },
-            options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '60%', // Make it a donut chart (60% inner radius)
-            animation: {
-                animateRotate: true,
-                animateScale: true,
-                duration: 2000,
-                easing: 'easeOutQuart'
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'right',
-                    labels: {
-                        padding: 20,
-                        font: {
-                            size: 13,
-                            weight: '600',
-                            family: "'Poppins', 'Inter', sans-serif"
+
+    // Create IntersectionObserver to trigger animation when 90% visible
+    const observer = new IntersectionObserver( ( entries ) => {
+        entries.forEach( entry => {
+            if ( entry.isIntersecting ) {
+                console.log( '🎬 Triggering Slaughter Yield animation!' );
+
+                const chart = new Chart( ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: farms.map( ( farm, index ) => `${ farm } (${ yields[ index ].toFixed( 1 ) }%)` ),
+                        datasets: [ {
+                            label: 'Slaughter Yield %',
+                            data: yields,
+                            backgroundColor: backgroundColors,
+                            borderColor: '#ffffff',
+                            borderWidth: 0, // Remove border for cleaner look
+                            hoverBorderWidth: 0,
+                            hoverOffset: 10,
+                            borderRadius: 20, // Rounded corners
+                            spacing: 5 // Spacing between segments
+                        } ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%', // Thinner ring (Make it a donut chart)
+                        animation: {
+                            duration: 2000, // 2 seconds duration
+                            easing: 'easeOutQuart', // Smooth easing
+                            animateRotate: true, // Animate rotation (circular fill)
+                            animateScale: false // Do not animate scale
                         },
-                        color: '#1a1a1a',
-                        usePointStyle: true,
-                        pointStyle: 'circle',
-                        boxWidth: 12,
-                        boxHeight: 12,
-                        generateLabels: function(chart) {
-                            const data = chart.data;
-                            if (data.labels.length && data.datasets.length) {
-                                return data.labels.map((label, i) => {
-                                    const value = data.datasets[0].data[i];
-                                    return {
-                                        text: label,
-                                        fillStyle: data.datasets[0].backgroundColor[i],
-                                        strokeStyle: data.datasets[0].borderColor,
-                                        lineWidth: data.datasets[0].borderWidth,
-                                        hidden: false,
-                                        index: i
-                                    };
-                                });
-                            }
-                            return [];
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'right',
+                                labels: {
+                                    padding: 20,
+                                    font: {
+                                        size: 13,
+                                        weight: '600',
+                                        family: "'Poppins', 'Inter', sans-serif"
+                                    },
+                                    color: '#1a1a1a',
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    boxWidth: 12,
+                                    boxHeight: 12,
+                                    generateLabels: function ( chart ) {
+                                        const data = chart.data;
+                                        if ( data.labels.length && data.datasets.length ) {
+                                            return data.labels.map( ( label, i ) => {
+                                                const value = data.datasets[ 0 ].data[ i ];
+                                                return {
+                                                    text: label,
+                                                    fillStyle: data.datasets[ 0 ].backgroundColor[ i ],
+                                                    strokeStyle: data.datasets[ 0 ].borderColor,
+                                                    lineWidth: data.datasets[ 0 ].borderWidth,
+                                                    hidden: false,
+                                                    index: i
+                                                };
+                                            } );
+                                        }
+                                        return [];
+                                    }
+                                },
+                                onClick: function ( e, legendItem, legend ) {
+                                    const index = legendItem.index;
+                                    const chart = legend.chart;
+                                    const meta = chart.getDatasetMeta( 0 );
+
+                                    meta.data[ index ].hidden = !meta.data[ index ].hidden;
+                                    chart.update();
+                                }
+                            },
+                            tooltip: {
+                                enabled: true,
+                                backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                                padding: 16,
+                                titleFont: {
+                                    size: 15,
+                                    weight: '700',
+                                    family: "'Poppins', 'Inter', sans-serif"
+                                },
+                                bodyFont: {
+                                    size: 13,
+                                    weight: '500',
+                                    family: "'Poppins', 'Inter', sans-serif"
+                                },
+                                borderColor: 'rgba(0, 212, 255, 0.4)',
+                                borderWidth: 2,
+                                cornerRadius: 12,
+                                displayColors: true,
+                                titleColor: '#1a1a1a',
+                                bodyColor: '#1a1a1a',
+                                boxPadding: 8,
+                                backdropFilter: 'blur(10px)',
+                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+                                callbacks: {
+                                    title: function ( context ) {
+                                        return context[ 0 ].label.split( ' (' )[ 0 ]; // Farm name only
+                                    },
+                                    label: function ( context ) {
+                                        const index = context.dataIndex;
+                                        const item = chartData[ index ];
+                                        const yield = context.parsed;
+                                        const total = yields.reduce( ( a, b ) => a + b, 0 );
+                                        const percentage = total > 0 ? ( ( yield / total ) * 100 ).toFixed( 1 ) : 0;
+
+                                        return [
+                                            `Yield: ${ yield.toFixed( 2 ) }%`,
+                                            `Total Slaughter: ${ new Intl.NumberFormat( 'en-US' ).format( item.total_slaughter ) }`,
+                                            `Counter + DOA: ${ new Intl.NumberFormat( 'en-US' ).format( item.total_counter_plus_doa ) }`,
+                                            `Share: ${ percentage }% of total`
+                                        ];
+                                    },
+                                    footer: function ( tooltipItems ) {
+                                        const total = yields.reduce( ( a, b ) => a + b, 0 );
+                                        const avg = ( total / yields.length ).toFixed( 2 );
+                                        return `Average Yield: ${ avg }%`;
+                                    }
+                                }
+                            },
+                            datalabels: typeof ChartDataLabels !== 'undefined' ? {
+                                display: true,
+                                color: '#ffffff',
+                                font: {
+                                    size: 13,
+                                    weight: '700',
+                                    family: "'Poppins', 'Inter', sans-serif"
+                                },
+                                formatter: function ( value, context ) {
+                                    return value.toFixed( 1 ) + '%';
+                                },
+                                textStrokeColor: 'rgba(0, 0, 0, 0.5)',
+                                textStrokeWidth: 3,
+                                padding: 8,
+                                textAlign: 'center',
+                                clip: false
+                            } : {}
                         }
-                    },
-                    onClick: function(e, legendItem, legend) {
-                        const index = legendItem.index;
-                        const chart = legend.chart;
-                        const meta = chart.getDatasetMeta(0);
-                        
-                        meta.data[index].hidden = !meta.data[index].hidden;
-                        chart.update();
                     }
-                },
-                tooltip: {
-                    enabled: true,
-                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-                    padding: 16,
-                    titleFont: {
-                        size: 15,
-                        weight: '700',
-                        family: "'Poppins', 'Inter', sans-serif"
-                    },
-                    bodyFont: {
-                        size: 13,
-                        weight: '500',
-                        family: "'Poppins', 'Inter', sans-serif"
-                    },
-                    borderColor: 'rgba(0, 212, 255, 0.4)',
-                    borderWidth: 2,
-                    cornerRadius: 12,
-                    displayColors: true,
-                    titleColor: '#1a1a1a',
-                    bodyColor: '#1a1a1a',
-                    boxPadding: 8,
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
-                    callbacks: {
-                        title: function(context) {
-                            return context[0].label.split(' (')[0]; // Farm name only
-                        },
-                        label: function(context) {
-                            const index = context.dataIndex;
-                            const item = chartData[index];
-                            const yield = context.parsed;
-                            const total = yields.reduce((a, b) => a + b, 0);
-                            const percentage = total > 0 ? ((yield / total) * 100).toFixed(1) : 0;
-                            
-                            return [
-                                `Yield: ${yield.toFixed(2)}%`,
-                                `Total Slaughter: ${new Intl.NumberFormat('en-US').format(item.total_slaughter)}`,
-                                `Counter + DOA: ${new Intl.NumberFormat('en-US').format(item.total_counter_plus_doa)}`,
-                                `Share: ${percentage}% of total`
-                            ];
-                        },
-                        footer: function(tooltipItems) {
-                            const total = yields.reduce((a, b) => a + b, 0);
-                            const avg = (total / yields.length).toFixed(2);
-                            return `Average Yield: ${avg}%`;
-                        }
-                    }
-                },
-                datalabels: typeof ChartDataLabels !== 'undefined' ? {
-                    display: true,
-                    color: '#ffffff',
-                    font: {
-                        size: 13,
-                        weight: '700',
-                        family: "'Poppins', 'Inter', sans-serif"
-                    },
-                    formatter: function(value, context) {
-                        return value.toFixed(1) + '%';
-                    },
-                    textStrokeColor: 'rgba(0, 0, 0, 0.5)',
-                    textStrokeWidth: 3,
-                    padding: 8,
-                    textAlign: 'center',
-                    clip: false
-                } : {}
+                } );
+
+                // Register datalabels plugin if available
+                if ( typeof ChartDataLabels !== 'undefined' ) {
+                    chart.config.options.plugins.plugins = [ ChartDataLabels ];
+                }
+
+                window.dashboardApp.chartInstances.slaughterYieldChart = chart;
+                console.log( '✅ Slaughter Yield PIE chart created successfully' );
+                console.log( 'Chart type:', chart.config.type );
+                console.log( 'Number of farms:', chart.data.datasets[ 0 ].data.length );
+
+                // Stop observing once triggered
+                observer.unobserve( entry.target );
             }
-        }
-    });
-    
-    // Register datalabels plugin if available
-    if (typeof ChartDataLabels !== 'undefined') {
-        chart.config.options.plugins.plugins = [ChartDataLabels];
-    }
-    
-    window.dashboardApp.chartInstances.slaughterYieldChart = chart;
-    console.log('✅ Slaughter Yield PIE chart created successfully');
-    console.log('Chart type:', chart.config.type);
-    console.log('Number of farms:', chart.data.datasets[0].data.length);
+        } );
+    }, {
+        threshold: 0.9 // Trigger when 90% of chart is visible
+    } );
+
+    // Start observing the canvas
+    observer.observe( canvas );
+
+
 }
 
 // Calculate optimal Y-axis scale with adaptive stepped scaling

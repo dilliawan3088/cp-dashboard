@@ -114,8 +114,88 @@ document.addEventListener('DOMContentLoaded', async () => {
     initAnimatedBackground();
     initScrollHeader();
     initFilterControls();
+    initScrollAnimations(); // Add scroll animations
     await autoLoadDashboard();
 });
+
+// Initialize scroll animations for KPI cards and section headers
+function initScrollAnimations () {
+    const observerOptions = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.1 // Trigger when 10% of the element is visible
+    };
+
+    const observer = new IntersectionObserver( ( entries ) => {
+        entries.forEach( entry => {
+            if ( entry.isIntersecting ) {
+                // Add animation class when element comes into view
+                entry.target.classList.add( 'animate-in' );
+                // Stop observing after animation is triggered
+                observer.unobserve( entry.target );
+            }
+        } );
+    }, observerOptions );
+
+    // Observe all KPI cards
+    const observeKPICards = () => {
+        const kpiCards = document.querySelectorAll( '.kpi-card' );
+        kpiCards.forEach( card => {
+            observer.observe( card );
+        } );
+    };
+
+    // Observe all section headers
+    const observeSectionHeaders = () => {
+        const sectionHeaders = document.querySelectorAll( '.section-header' );
+        sectionHeaders.forEach( header => {
+            observer.observe( header );
+        } );
+    };
+
+    // Initial observation
+    observeKPICards();
+    observeSectionHeaders();
+
+    // Re-observe when data is loaded (in case elements are re-rendered)
+    window.addEventListener( 'kpi-cards-updated', () => {
+        observeKPICards();
+        observeSectionHeaders();
+    } );
+}
+
+// Trigger all dashboard animations manually (called after loading completes)
+function triggerDashboardAnimations () {
+    console.log( '🎬 Triggering dashboard animations after loading complete' );
+
+    setTimeout( () => {
+        // Animate all visible section headers first
+        const visibleHeaders = document.querySelectorAll( '.section-header' );
+        visibleHeaders.forEach( ( header, index ) => {
+            const rect = header.getBoundingClientRect();
+            const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+
+            if ( isVisible ) {
+                setTimeout( () => {
+                    header.classList.add( 'animate-in' );
+                }, index * 100 ); // Stagger headers by 100ms
+            }
+        } );
+
+        // Then animate KPI cards (with delay after headers)
+        setTimeout( () => {
+            const visibleCards = document.querySelectorAll( '.kpi-card' );
+            visibleCards.forEach( ( card, index ) => {
+                const rect = card.getBoundingClientRect();
+                const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+
+                if ( isVisible ) {
+                    card.classList.add( 'animate-in' );
+                }
+            } );
+        }, visibleHeaders.length * 100 + 200 ); // Wait for headers to finish
+    }, 100 );
+}
 
 // Initialize filter controls
 function initFilterControls() {
@@ -572,6 +652,8 @@ async function loadAndDisplayData(uploadId) {
                             // Hide loading after all charts are created
                             hideLoading();
                             console.log('✅ All charts created, loading hidden');
+                            // Trigger animations after loading is complete
+                            triggerDashboardAnimations();
                         }
                     }, 400);
                 } else {
@@ -579,6 +661,8 @@ async function loadAndDisplayData(uploadId) {
                     setTimeout(() => {
                         hideLoading();
                         console.log('✅ All charts created, loading hidden');
+                        // Trigger animations after loading is complete
+                        triggerDashboardAnimations();
                     }, 1000);
                 }
                 
@@ -589,6 +673,8 @@ async function loadAndDisplayData(uploadId) {
                         console.log('⚠️ Loading still visible after 5 seconds, forcing hide...');
                         hideLoading();
                         console.log('⚠️ Loading hidden by fallback timeout');
+                        // Trigger animations even in fallback case
+                        triggerDashboardAnimations();
                     } else {
                         console.log('✅ Loading already hidden, fallback not needed');
                     }
@@ -766,6 +852,11 @@ function displayKPIs(overallSummary, summary, data = null, truckAlerts = null) {
             totalNonHalalEl.textContent = formatNumber(totalNonHalal);
         }
     }
+
+    // Trigger scroll animation observation for KPI cards
+    setTimeout( () => {
+        window.dispatchEvent( new Event( 'kpi-cards-updated' ) );
+    }, 100 );
 }
 
 function updateTrendIndicator(elementId, value, threshold, type) {
