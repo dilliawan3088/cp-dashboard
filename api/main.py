@@ -712,7 +712,7 @@ async def process_file_internal(upload_id: int, db: Session):
 @app.get("/")
 async def root():
     """Root endpoint - redirect to dashboard"""
-    return FileResponse("public/index.html")
+    return FileResponse(os.path.join(public_dir, "index.html"))
 
 
 @app.get("/files")
@@ -1611,13 +1611,7 @@ async def get_truck_farm_variance(
     }
 
 
-# Serve static files (frontend) - must be last
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/dashboard")
-async def dashboard():
-    """Serve the dashboard HTML"""
-    return FileResponse("static/index.html")
 
 
 if __name__ == "__main__":
