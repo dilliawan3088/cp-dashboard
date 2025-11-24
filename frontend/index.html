@@ -16,8 +16,13 @@
     <script>
         // Set API URL based on environment
         // For local development: http://localhost:8001
-        // For production: set window.ENV_API_URL to your deployed backend URL
-        window.ENV_API_URL = window.ENV_API_URL || 'http://localhost:8001';
+        // For production: use current domain (Vercel deployment)
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            window.ENV_API_URL = window.ENV_API_URL || 'http://localhost:8001';
+        } else {
+            // Production: use same domain (frontend and backend on same Vercel deployment)
+            window.ENV_API_URL = window.ENV_API_URL || window.location.origin;
+        }
     </script>
     
     <script src="/static/charts.js?v=16"></script>

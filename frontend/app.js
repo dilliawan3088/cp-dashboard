@@ -4,7 +4,7 @@
  */
     
 // API Base URL - can be overridden by environment variable
-const API_BASE_URL = window.ENV_API_URL || 'http://localhost:8001';
+const API_BASE_URL = window.cp-dashboard-nine.vercel.app;
 console.log('API Base URL:', API_BASE_URL);
 
 let currentUploadId = null;
