@@ -10,10 +10,11 @@ class DataAnalyzer:
     def __init__(self):
         self.broiler_keywords = ['broiler', 'brc', 'bkt']
         self.breeder_keywords = ['breeder', 'brd']
-    
+     
     def calculate_row_metrics(self, raw_data_row: Dict) -> Dict:
         """
         Calculate all metrics for a single row.
+        
         
         Key calculations:
         - Total Birds Arrived = D/O Quantity
