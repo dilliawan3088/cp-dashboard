@@ -48,17 +48,17 @@ app.add_middleware(
 # Mount static files for frontend
 # Use absolute path to ensure it works on Vercel
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-public_dir = os.path.join(base_dir, "public")
+frontend_dir = os.path.join(base_dir, "frontend")
 
 try:
-    if os.path.exists(public_dir):
-        print(f"Mounting static files from: {public_dir}")
-        app.mount("/static", StaticFiles(directory=public_dir), name="static")
-    elif os.path.exists("public"):
-        print("Mounting static files from: public (relative)")
-        app.mount("/static", StaticFiles(directory="public"), name="static")
+    if os.path.exists(frontend_dir):
+        print(f"Mounting static files from: {frontend_dir}")
+        app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+    elif os.path.exists("frontend"):
+        print("Mounting static files from: frontend (relative)")
+        app.mount("/static", StaticFiles(directory="frontend"), name="static")
     else:
-        print(f"Warning: Public directory not found at {public_dir} or ./public. Static files will not be served.")
+        print(f"Warning: Frontend directory not found at {frontend_dir} or ./frontend. Static files will not be served.")
 except Exception as e:
     print(f"Error mounting static files: {e}")
 
@@ -76,9 +76,34 @@ async def debug_paths():
         "files_in_cwd": files,
         "base_dir": base_dir,
         "files_in_base": base_files,
-        "public_exists": os.path.exists(os.path.join(base_dir, "public")),
+        "frontend_exists": os.path.exists(os.path.join(base_dir, "frontend")),
         "db_exists": os.path.exists(os.path.join(base_dir, "poultry_dashboard.db")),
         "tmp_files": os.listdir("/tmp") if os.path.exists("/tmp") else "No /tmp"
+    }
+
+# ... (rest of the file) ...
+
+@app.get("/")
+async def root():
+    """Root endpoint - redirect to dashboard"""
+    index_path = os.path.join(frontend_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    
+    # Recursive file listing to find where 'frontend' went
+    file_map = []
+    for root, dirs, files in os.walk(os.getcwd()):
+        for file in files:
+            file_map.append(os.path.join(root, file))
+            
+    return {
+        "error": "Dashboard file not found", 
+        "path": index_path, 
+        "cwd": os.getcwd(),
+        "base_dir": base_dir,
+        "frontend_dir": frontend_dir,
+        "exists": os.path.exists(frontend_dir),
+        "all_files": file_map[:100] # Limit to first 100 to avoid huge response
     }
 
 # Create uploads directory

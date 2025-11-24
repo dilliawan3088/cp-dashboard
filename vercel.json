@@ -6,7 +6,7 @@
       "use": "@vercel/python",
       "config": {
         "includeFiles": [
-          "public/**",
+          "frontend/**",
           "poultry_dashboard.db"
         ]
       }
