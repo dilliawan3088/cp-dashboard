@@ -712,7 +712,18 @@ async def process_file_internal(upload_id: int, db: Session):
 @app.get("/")
 async def root():
     """Root endpoint - redirect to dashboard"""
-    return FileResponse(os.path.join(public_dir, "index.html"))
+    index_path = os.path.join(public_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {
+        "error": "Dashboard file not found", 
+        "path": index_path, 
+        "cwd": os.getcwd(),
+        "base_dir": base_dir,
+        "public_dir": public_dir,
+        "exists": os.path.exists(public_dir),
+        "files_in_public": os.listdir(public_dir) if os.path.exists(public_dir) else "Public dir missing"
+    }
 
 
 @app.get("/files")
