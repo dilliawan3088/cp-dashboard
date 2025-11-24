@@ -715,6 +715,13 @@ async def root():
     index_path = os.path.join(public_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
+    
+    # Recursive file listing to find where 'public' went
+    file_map = []
+    for root, dirs, files in os.walk(os.getcwd()):
+        for file in files:
+            file_map.append(os.path.join(root, file))
+            
     return {
         "error": "Dashboard file not found", 
         "path": index_path, 
@@ -722,7 +729,7 @@ async def root():
         "base_dir": base_dir,
         "public_dir": public_dir,
         "exists": os.path.exists(public_dir),
-        "files_in_public": os.listdir(public_dir) if os.path.exists(public_dir) else "Public dir missing"
+        "all_files": file_map[:100] # Limit to first 100 to avoid huge response
     }
 
 
