@@ -50,13 +50,36 @@ app.add_middleware(
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 public_dir = os.path.join(base_dir, "public")
 
-if os.path.exists(public_dir):
-    app.mount("/static", StaticFiles(directory=public_dir), name="static")
-else:
-    print(f"Warning: Public directory not found at {public_dir}")
-    # Try current directory as fallback
-    if os.path.exists("public"):
+try:
+    if os.path.exists(public_dir):
+        print(f"Mounting static files from: {public_dir}")
+        app.mount("/static", StaticFiles(directory=public_dir), name="static")
+    elif os.path.exists("public"):
+        print("Mounting static files from: public (relative)")
         app.mount("/static", StaticFiles(directory="public"), name="static")
+    else:
+        print(f"Warning: Public directory not found at {public_dir} or ./public. Static files will not be served.")
+except Exception as e:
+    print(f"Error mounting static files: {e}")
+
+@app.get("/debug-paths")
+async def debug_paths():
+    """Debug endpoint to check file system on Vercel"""
+    import os
+    cwd = os.getcwd()
+    files = os.listdir(cwd)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_files = os.listdir(base_dir) if os.path.exists(base_dir) else "Dir not found"
+    
+    return {
+        "cwd": cwd,
+        "files_in_cwd": files,
+        "base_dir": base_dir,
+        "files_in_base": base_files,
+        "public_exists": os.path.exists(os.path.join(base_dir, "public")),
+        "db_exists": os.path.exists(os.path.join(base_dir, "poultry_dashboard.db")),
+        "tmp_files": os.listdir("/tmp") if os.path.exists("/tmp") else "No /tmp"
+    }
 
 # Create uploads directory
 # On Vercel, we must use /tmp
