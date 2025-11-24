@@ -1,5 +1,6 @@
 """
-SQLite database models and operations for poultry processing dashboard.
+Database models and operations for poultry processing dashboard.
+Uses Neon/PostgreSQL database (requires DATABASE_URL environment variable).
 """
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -9,22 +10,27 @@ import os
 
 Base = declarative_base()
 
-# Database file path
-import os
+# Database configuration
+# Require DATABASE_URL for Neon/PostgreSQL (no SQLite fallback)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Check if running on Vercel
-IS_VERCEL = os.environ.get("VERCEL") == "1"
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL environment variable is required. "
+        "Please set it to your Neon database connection string.\n"
+        "Example: postgresql://user:password@host:port/database?sslmode=require\n"
+        "Get your connection string from: https://console.neon.tech"
+    )
 
-# Use /tmp directory for database on Vercel (writable), otherwise local directory
-if IS_VERCEL:
-    DB_FILE = "/tmp/poultry_dashboard.db"
-else:
-    DB_FILE = "./poultry_dashboard.db"
+# Strip whitespace to prevent connection issues
+DATABASE_URL = DATABASE_URL.strip()
 
-DATABASE_URL = f"sqlite:///{DB_FILE}"
+# Ensure connection string uses postgresql:// (not postgres://) for SQLAlchemy 2.0+
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Create engine
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Create engine for PostgreSQL/Neon
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

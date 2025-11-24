@@ -77,7 +77,7 @@ async def debug_paths():
         "base_dir": base_dir,
         "files_in_base": base_files,
         "frontend_exists": os.path.exists(os.path.join(base_dir, "frontend")),
-        "db_exists": os.path.exists(os.path.join(base_dir, "poultry_dashboard.db")),
+        "database_url_set": bool(os.getenv("DATABASE_URL")),
         "tmp_files": os.listdir("/tmp") if os.path.exists("/tmp") else "No /tmp"
     }
 
@@ -119,29 +119,6 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
-    # On Vercel, copy the pre-populated database to /tmp if it doesn't exist there
-    if IS_VERCEL:
-        import shutil
-        # Get absolute path to the source DB (assumed to be in project root)
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        source_db = os.path.join(base_dir, "poultry_dashboard.db")
-        target_db = "/tmp/poultry_dashboard.db"
-        
-        print(f"Looking for source DB at: {source_db}")
-        
-        if os.path.exists(source_db):
-            if not os.path.exists(target_db):
-                print(f"Copying pre-populated database from {source_db} to {target_db}...")
-                try:
-                    shutil.copy2(source_db, target_db)
-                    print("Database copied successfully!")
-                except Exception as e:
-                    print(f"Error copying database: {e}")
-        else:
-            print(f"Warning: Source database {source_db} not found! Current dir: {os.getcwd()}")
-            # List files to help debug
-            print(f"Files in {base_dir}: {os.listdir(base_dir)}")
-
     init_db()
     print("Database initialized!")
     
@@ -1550,7 +1527,7 @@ async def verify_database(db: Session = Depends(get_db)):
         
         return {
             "status": "success",
-            "database_file": DATABASE_URL.replace("sqlite:///", ""),
+            "database_url": DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL,  # Show only host/database part
             "table_counts": {
                 "uploads": uploads_count,
                 "raw_data": raw_data_count,
