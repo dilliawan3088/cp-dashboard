@@ -4,7 +4,6 @@ Data analyzer with correct calculation logic for poultry processing KPIs.
 from typing import List, Dict, Optional
 from collections import defaultdict
 
-
 class DataAnalyzer:
     """Analyze poultry processing data and perform accurate calculations"""
     
