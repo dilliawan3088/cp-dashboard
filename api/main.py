@@ -119,8 +119,25 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
-    init_db()
-    print("Database initialized!")
+    try:
+        # Test database connection
+        from api.database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("✅ Database connection successful!")
+        init_db()
+        print("✅ Database initialized!")
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+        print(f"   DATABASE_URL is set: {bool(os.getenv('DATABASE_URL'))}")
+        if os.getenv("DATABASE_URL"):
+            db_url = os.getenv("DATABASE_URL")
+            # Hide password in logs
+            if "@" in db_url:
+                safe_url = db_url.split("@")[0].split(":")[0] + ":***@" + db_url.split("@")[1]
+                print(f"   DATABASE_URL: {safe_url}")
+        raise  # Re-raise to fail fast
     
     # Automatically process all Excel files in uploads folder
     # On Vercel, we skip auto-processing if we already have data to avoid timeouts
