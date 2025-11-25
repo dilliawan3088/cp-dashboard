@@ -344,9 +344,26 @@ function createOverallChart(summary, overallSummary = null, deliveredVsReceived 
     console.log('Chart data - Total Birds Counted:', totalBirdsCounted);
     console.log('Chart data - Total Delivered:', totalDelivered);
     
-    // Calculate optimal scale
-    const maxValue = Math.max(...totalBirdsCounted, ...totalDelivered);
-    const scaleConfig = calculateOptimalScale(maxValue);
+    // Calculate optimal scale with clean numbers (500, 1000, 1500, etc.)
+    const maxValue = Math.max( ...totalBirdsCounted, ...totalDelivered, 100 );
+    let cleanMax, cleanStepSize;
+
+    if ( maxValue <= 500 ) {
+        cleanStepSize = 100;
+        cleanMax = Math.ceil( maxValue / 100 ) * 100;
+    } else if ( maxValue <= 2000 ) {
+        cleanStepSize = 500;
+        cleanMax = Math.ceil( maxValue / 500 ) * 500;
+    } else if ( maxValue <= 5000 ) {
+        cleanStepSize = 1000;
+        cleanMax = Math.ceil( maxValue / 1000 ) * 1000;
+    } else {
+        cleanStepSize = 2000;
+        cleanMax = Math.ceil( maxValue / 2000 ) * 2000;
+    }
+
+    // Add 10% padding
+    cleanMax = Math.ceil( cleanMax * 1.1 );
     
     // Create gradient for area fill
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -471,7 +488,7 @@ function createOverallChart(summary, overallSummary = null, deliveredVsReceived 
                                     const sign = difference >= 0 ? '+' : '';
                                     return [
                                         '',
-                                        `Net Difference: ${sign}${new Intl.NumberFormat('en-US').format(difference)}`
+                                        `Total Difference: ${ sign }${ new Intl.NumberFormat( 'en-US' ).format( difference ) }`
                                     ];
                                 }
                                 return [];
@@ -518,8 +535,8 @@ function createOverallChart(summary, overallSummary = null, deliveredVsReceived 
                     },
                     y: {
                         min: 0,
-                        max: scaleConfig.max,
-                        suggestedMax: scaleConfig.suggestedMax,
+                        max: cleanMax,
+                        suggestedMax: cleanMax,
                         grid: {
                             display: true,
                             color: 'rgba(0, 0, 0, 0.08)',
@@ -528,7 +545,7 @@ function createOverallChart(summary, overallSummary = null, deliveredVsReceived 
                             drawOnChartArea: true
                         },
                         ticks: {
-                            stepSize: scaleConfig.stepSize,
+                            stepSize: cleanStepSize,
                             font: {
                                 size: 12,
                                 weight: '600',
@@ -537,7 +554,11 @@ function createOverallChart(summary, overallSummary = null, deliveredVsReceived 
                             color: '#4a5568',
                             padding: 12,
                             callback: function(value) {
-                                return new Intl.NumberFormat('en-US').format(value);
+                                // Only show clean numbers (multiples of stepSize)
+                                if ( value % cleanStepSize === 0 ) {
+                                    return new Intl.NumberFormat( 'en-US' ).format( value );
+                                }
+                                return '';
                             }
                         },
                         border: {
@@ -2621,7 +2642,7 @@ function createSlaughterYieldChart(data) {
                     data: {
                         labels: farms.map( ( farm, index ) => `${ farm } (${ yields[ index ].toFixed( 1 ) }%)` ),
                         datasets: [ {
-                            label: 'Slaughter Yield %',
+                            label: 'Total Slaughter Percentage',
                             data: yields,
                             backgroundColor: backgroundColors,
                             borderColor: '#ffffff',
@@ -2720,7 +2741,7 @@ function createSlaughterYieldChart(data) {
                                         const percentage = total > 0 ? ( ( yield / total ) * 100 ).toFixed( 1 ) : 0;
 
                                         return [
-                                            `Yield: ${ yield.toFixed( 2 ) }%`,
+                                            `Total Slaughter Percentage: ${ yield.toFixed( 2 ) }%`,
                                             `Total Slaughter: ${ new Intl.NumberFormat( 'en-US' ).format( item.total_slaughter ) }`,
                                             `Counter + DOA: ${ new Intl.NumberFormat( 'en-US' ).format( item.total_counter_plus_doa ) }`,
                                             `Share: ${ percentage }% of total`
@@ -2729,7 +2750,7 @@ function createSlaughterYieldChart(data) {
                                     footer: function ( tooltipItems ) {
                                         const total = yields.reduce( ( a, b ) => a + b, 0 );
                                         const avg = ( total / yields.length ).toFixed( 2 );
-                                        return `Average Yield: ${ avg }%`;
+                                        return `Average Total Slaughter Percentage: ${ avg }%`;
                                     }
                                 }
                             },

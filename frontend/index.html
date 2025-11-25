@@ -150,9 +150,9 @@
                         <i class="fas fa-chart-pie"></i>
                     </div>
                     <div class="kpi-content">
-                        <h3>Slaughter Yield %</h3>
+                        <h3>Total Slaughter Percentage</h3>
                         <div class="kpi-value" id="slaughterYieldPercentage">0.00%</div>
-                        <div class="kpi-label">Slaughter / Counted</div>
+                        <div class="kpi-label">Total Slaughter / Counted</div>
                     </div>
                 </div>
 
@@ -183,11 +183,11 @@
                     </div>
                 </div>
 
-                <!-- 2. Overall Net Difference (Full Width) -->
+                <!-- 2. Overall Total Difference (Full Width) -->
                 <div class="chart-container chart-large">
                     <div class="chart-header">
-                        <h3 class="chart-section-header"><i class="fas fa-chart-pie"></i> Overall Net Difference</h3>
-                        <p>Net Difference and Extra Birds by Farm</p>
+                        <h3 class="chart-section-header"><i class="fas fa-chart-pie"></i> Overall Total Difference</h3>
+                        <p>Total Difference and Extra Birds by Farm</p>
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="overallChart" width="400" height="400"></canvas>
@@ -241,8 +241,8 @@
                 <!-- 7. Slaughter Yield per Farm (Half Width - Left) -->
                 <div class="chart-container">
                     <div class="chart-header">
-                        <h3><i class="fas fa-percentage"></i> Slaughter Yield per Farm</h3>
-                        <p>Slaughter Yield % = (SUM(TOTAL SLAUGHTER) / SUM(Counter + DOA)) × 100</p>
+                        <h3><i class="fas fa-percentage"></i> Total Slaughter Percentage per Farm</h3>
+                        <p>Total Slaughter Percentage = (SUM(TOTAL SLAUGHTER) / SUM(Counter + DOA)) × 100</p>
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="slaughterYieldChart"></canvas>
@@ -306,7 +306,7 @@
                             <th><i class="fas fa-ban"></i> Non-Halal</th>
                             <th><i class="fas fa-plus"></i> Counter+DOA</th>
                             <th><i class="fas fa-balance-scale"></i> Difference</th>
-                            <th><i class="fas fa-percentage"></i> Yield %</th>
+                            <th><i class="fas fa-percentage"></i> Total Slaughter %</th>
                             <th><i class="fas fa-exclamation-circle"></i> Status</th>
                         </tr>
                     </thead>
