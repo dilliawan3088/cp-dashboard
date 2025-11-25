@@ -9,7 +9,7 @@ console.log('API Base URL:', API_BASE_URL);
 
 let currentUploadId = null;
 let chartInstances = {};
-let currentFilterDays = 7; // Default: 7 days
+let currentFilterDays = 1; // Default: 1 day (latest Excel data)
 let isNewFileMode = false; // Track if showing a new file (no aggregation)
 let currentDateRange = null; // Track date range filter: { startDate, endDate }
 
@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initScrollHeader();
     initFilterControls();
     initScrollAnimations(); // Add scroll animations
+    initTruckAlertsPagination(); // Initialize pagination
     await autoLoadDashboard();
 });
 
@@ -205,9 +206,17 @@ function initFilterControls() {
         filterDropdown.addEventListener('change', () => {
             const value = filterDropdown.value;
             
-            // Set filter to selected days (7, 15, or 30)
-            currentFilterDays = parseInt(value);
-            isNewFileMode = false;
+            // Set filter to selected days (1, 7, 15, 30, or 90)
+            const daysValue = parseInt( value );
+            if ( daysValue === 1 ) {
+                // 1 day = show latest Excel data only (no aggregation)
+                isNewFileMode = true;
+                currentFilterDays = null; // null means show only latest file
+            } else {
+                // 7, 15, 30, or 90 days = aggregate data from last N days
+                isNewFileMode = false;
+                currentFilterDays = daysValue;
+            }
             currentDateRange = null;
             
             // Reload data with new filter
@@ -292,13 +301,13 @@ async function autoLoadDashboard() {
                     }
                 });
             } else {
-                // Default: 7 days average
-                isNewFileMode = false;
-                currentFilterDays = 7;
-                // Update UI to show "7 Days" as active
+                // Default: 1 day (latest Excel data)
+                isNewFileMode = true;
+                currentFilterDays = 0;
+                // Update UI to show "Last 1 day" as active
                 document.querySelectorAll('.filter-btn').forEach(btn => {
                     btn.classList.remove('active');
-                    if (btn.dataset.days === '7') {
+                    if ( btn.dataset.days === '0' ) {
                         btn.classList.add('active');
                     }
                 });
@@ -363,8 +372,10 @@ async function loadAndDisplayData(uploadId) {
         let filterInfo = 'Latest File';
         if (currentDateRange && currentDateRange.startDate && currentDateRange.endDate) {
             filterInfo = `${currentDateRange.startDate} to ${currentDateRange.endDate}`;
-        } else if (!isNewFileMode && currentFilterDays) {
-            filterInfo = `${currentFilterDays} days`;
+        } else if ( isNewFileMode || currentFilterDays === null || currentFilterDays === 0 ) {
+            filterInfo = 'Last 1 day';
+        } else if ( currentFilterDays ) {
+            filterInfo = currentFilterDays === 1 ? 'Last 1 day' : `${ currentFilterDays } days`;
         }
         console.log(`Loading data for upload ID: ${uploadId}, filter: ${filterInfo}`);
         
@@ -373,7 +384,9 @@ async function loadAndDisplayData(uploadId) {
         hideError();
         
         // Determine if we should use days parameter or date range
-        const daysParam = isNewFileMode ? null : currentFilterDays;
+        // For 1 day (latest file), use null to get only the latest upload
+        // For other days, use the days value for aggregation
+        const daysParam = isNewFileMode ? null : ( currentFilterDays || null );
         const dateRangeParam = currentDateRange;
         
         showLoading('Loading KPIs...');
@@ -1082,24 +1095,59 @@ function displaySlaughterYieldTable(data) {
     });
 }
 
-// Display Truck Alerts Table
+// Pagination state for Truck Alerts Table
+let truckAlertsData = [];
+let truckAlertsCurrentPage = 1;
+const truckAlertsItemsPerPage = 10; // Show 10 items per page
+
+// Display Truck Alerts Table with Pagination
 function displayTruckAlertsTable(data) {
     const tbody = document.getElementById('truckAlertsTableBody');
+    const paginationWrapper = document.getElementById( 'truckAlertsPagination' );
     if (!tbody) return;
     
+    // Store full data
+    truckAlertsData = data || [];
+    truckAlertsCurrentPage = 1;
+
+    // Clear table
     tbody.innerHTML = '';
     
-    if (!data || data.length === 0) {
+    if ( !truckAlertsData || truckAlertsData.length === 0 ) {
         const tr = document.createElement('tr');
         tr.innerHTML = '<td colspan="12" style="text-align: center; padding: 40px; color: #605E5C;">No data available</td>';
         tbody.appendChild(tr);
+        if ( paginationWrapper ) paginationWrapper.style.display = 'none';
         return;
     }
     
+    // Show pagination if we have more items than per page
+    if ( paginationWrapper ) {
+        paginationWrapper.style.display = truckAlertsData.length > truckAlertsItemsPerPage ? 'flex' : 'none';
+    }
+
+    // Render current page
+    renderTruckAlertsPage();
+}
+
+// Render current page of truck alerts
+function renderTruckAlertsPage () {
+    const tbody = document.getElementById( 'truckAlertsTableBody' );
+    if ( !tbody ) return;
+
+    tbody.innerHTML = '';
+
     const formatNumber = (num) => new Intl.NumberFormat('en-US').format(num || 0);
     const formatPercent = (num) => (num || 0).toFixed(2) + '%';
     
-    data.forEach(item => {
+    // Calculate pagination
+    const totalPages = Math.ceil( truckAlertsData.length / truckAlertsItemsPerPage );
+    const startIndex = ( truckAlertsCurrentPage - 1 ) * truckAlertsItemsPerPage;
+    const endIndex = Math.min( startIndex + truckAlertsItemsPerPage, truckAlertsData.length );
+    const currentPageData = truckAlertsData.slice( startIndex, endIndex );
+
+    // Render rows for current page
+    currentPageData.forEach( item => {
         const tr = document.createElement('tr');
         const status = item.status || 'OK';
         const statusClass = status === 'ALERT' ? 'alert-row' : '';
@@ -1125,6 +1173,132 @@ function displayTruckAlertsTable(data) {
         `;
         tbody.appendChild(tr);
     });
+
+    // Update pagination controls
+    updateTruckAlertsPagination( totalPages, startIndex + 1, endIndex, truckAlertsData.length );
+}
+
+// Update pagination controls
+function updateTruckAlertsPagination ( totalPages, startItem, endItem, totalItems ) {
+    const prevBtn = document.getElementById( 'truckAlertsPrevBtn' );
+    const nextBtn = document.getElementById( 'truckAlertsNextBtn' );
+    const pageNumbers = document.getElementById( 'truckAlertsPaginationInfo' );
+
+    // Update info text
+    if ( pageNumbers ) {
+        pageNumbers.textContent = `Showing ${ startItem }-${ endItem } of ${ totalItems }`;
+    }
+
+    // Update Previous button
+    if ( prevBtn ) {
+        prevBtn.disabled = truckAlertsCurrentPage === 1;
+    }
+
+    // Update Next button
+    if ( nextBtn ) {
+        nextBtn.disabled = truckAlertsCurrentPage === totalPages;
+    }
+
+    // Update page numbers
+    const pageNumbersContainer = document.getElementById( 'truckAlertsPageNumbers' );
+    if ( pageNumbersContainer ) {
+        pageNumbersContainer.innerHTML = '';
+
+        // Show page numbers (max 5 visible)
+        let startPage = Math.max( 1, truckAlertsCurrentPage - 2 );
+        let endPage = Math.min( totalPages, truckAlertsCurrentPage + 2 );
+
+        // Adjust if we're near the start
+        if ( truckAlertsCurrentPage <= 3 ) {
+            endPage = Math.min( 5, totalPages );
+        }
+        // Adjust if we're near the end
+        if ( truckAlertsCurrentPage >= totalPages - 2 ) {
+            startPage = Math.max( 1, totalPages - 4 );
+        }
+
+        // First page
+        if ( startPage > 1 ) {
+            const firstBtn = document.createElement( 'button' );
+            firstBtn.className = 'pagination-page-btn';
+            firstBtn.textContent = '1';
+            firstBtn.onclick = () => goToTruckAlertsPage( 1 );
+            pageNumbersContainer.appendChild( firstBtn );
+
+            if ( startPage > 2 ) {
+                const ellipsis = document.createElement( 'span' );
+                ellipsis.className = 'pagination-ellipsis';
+                ellipsis.textContent = '...';
+                pageNumbersContainer.appendChild( ellipsis );
+            }
+        }
+
+        // Page numbers
+        for ( let i = startPage; i <= endPage; i++ ) {
+            const pageBtn = document.createElement( 'button' );
+            pageBtn.className = 'pagination-page-btn';
+            if ( i === truckAlertsCurrentPage ) {
+                pageBtn.classList.add( 'active' );
+            }
+            pageBtn.textContent = i;
+            pageBtn.onclick = () => goToTruckAlertsPage( i );
+            pageNumbersContainer.appendChild( pageBtn );
+        }
+
+        // Last page
+        if ( endPage < totalPages ) {
+            if ( endPage < totalPages - 1 ) {
+                const ellipsis = document.createElement( 'span' );
+                ellipsis.className = 'pagination-ellipsis';
+                ellipsis.textContent = '...';
+                pageNumbersContainer.appendChild( ellipsis );
+            }
+
+            const lastBtn = document.createElement( 'button' );
+            lastBtn.className = 'pagination-page-btn';
+            lastBtn.textContent = totalPages;
+            lastBtn.onclick = () => goToTruckAlertsPage( totalPages );
+            pageNumbersContainer.appendChild( lastBtn );
+        }
+    }
+}
+
+// Navigate to specific page
+function goToTruckAlertsPage ( page ) {
+    const totalPages = Math.ceil( truckAlertsData.length / truckAlertsItemsPerPage );
+    if ( page < 1 || page > totalPages ) return;
+
+    truckAlertsCurrentPage = page;
+    renderTruckAlertsPage();
+
+    // Scroll to top of table
+    const tableSection = document.getElementById( 'truckAlertsSection' );
+    if ( tableSection ) {
+        tableSection.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+    }
+}
+
+// Initialize pagination event listeners
+function initTruckAlertsPagination () {
+    const prevBtn = document.getElementById( 'truckAlertsPrevBtn' );
+    const nextBtn = document.getElementById( 'truckAlertsNextBtn' );
+
+    if ( prevBtn ) {
+        prevBtn.addEventListener( 'click', () => {
+            if ( truckAlertsCurrentPage > 1 ) {
+                goToTruckAlertsPage( truckAlertsCurrentPage - 1 );
+            }
+        } );
+    }
+
+    if ( nextBtn ) {
+        nextBtn.addEventListener( 'click', () => {
+            const totalPages = Math.ceil( truckAlertsData.length / truckAlertsItemsPerPage );
+            if ( truckAlertsCurrentPage < totalPages ) {
+                goToTruckAlertsPage( truckAlertsCurrentPage + 1 );
+            }
+        } );
+    }
 }
 
 // Extract date from filename (format: date-month-year.xlsx)

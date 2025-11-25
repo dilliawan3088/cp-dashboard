@@ -209,7 +209,7 @@ function createVisualizations(trucks, farms, summary, overallSummary = null, del
             if (trucks && trucks.length > 0) {
                 console.log('Creating truck charts...');
                 createTruckLossChart(trucks);
-                createVarianceTrendsChart(trucks);
+                createVariationTrendsChart(trucks);
                 createDeathByTruckChart(trucks);
             } else {
                 console.warn('No truck data provided');
@@ -1636,8 +1636,8 @@ function createTruckLossChart(trucks) {
     }
 }
 
-function createVarianceTrendsChart(trucks) {
-    console.log('=== createVarianceTrendsChart START (AREA CHART) ===');
+function createVariationTrendsChart(trucks) {
+    console.log('=== createVariationTrendsChart START (AREA CHART) ===');
     const canvas = document.getElementById('varianceTrendsChart');
     if (!canvas) {
         console.warn('varianceTrendsChart canvas not found');
@@ -1649,23 +1649,23 @@ function createVarianceTrendsChart(trucks) {
         try {
             window.dashboardApp.chartInstances.varianceTrendsChart.destroy();
         } catch (e) {
-            console.warn('Error destroying existing variance chart:', e);
+            console.warn('Error destroying existing variation chart:', e);
         }
     }
     
     if (!trucks || trucks.length === 0) {
-        console.warn('No truck data available for variance chart');
+        console.warn('No truck data available for variation chart');
         return;
     }
     
-    // Fetch truck variance data from API
+    // Fetch truck variation data from API
     const uploadId = window.dashboardApp.currentUploadId || 1;
     const apiUrl = `${API_BASE_URL}/truck-farm-variance/${uploadId}`;
     
     fetch(apiUrl)
         .then(response => response.json())
         .then(matrixData => {
-            console.log('Truck Variance Data:', matrixData);
+            console.log('Truck Variation Data:', matrixData);
             
             const truckNos = matrixData.trucks || [];
             const data = matrixData.data || [];
@@ -1675,22 +1675,22 @@ function createVarianceTrendsChart(trucks) {
                 return;
             }
             
-            // Aggregate variance by truck (average across all farms)
-            const truckVarianceMap = {};
+            // Aggregate variation by truck (average across all farms)
+            const truckVariationMap = {};
             data.forEach(item => {
-                if (!truckVarianceMap[item.truck_no]) {
-                    truckVarianceMap[item.truck_no] = {
+                if (!truckVariationMap[item.truck_no]) {
+                    truckVariationMap[item.truck_no] = {
                         total: 0,
                         count: 0
                     };
                 }
-                truckVarianceMap[item.truck_no].total += item.variance_percentage || 0;
-                truckVarianceMap[item.truck_no].count += 1;
+                truckVariationMap[item.truck_no].total += item.variance_percentage || 0;
+                truckVariationMap[item.truck_no].count += 1;
             });
             
-            // Calculate average variance for each truck
+            // Calculate average variation for each truck
             const chartData = truckNos.map(truckNo => {
-                const truckData = truckVarianceMap[truckNo];
+                const truckData = truckVariationMap[truckNo];
                 if (truckData && truckData.count > 0) {
                     return truckData.total / truckData.count;
                 }
@@ -1698,7 +1698,7 @@ function createVarianceTrendsChart(trucks) {
             });
             
             console.log('Truck Numbers:', truckNos);
-            console.log('Variance Data:', chartData);
+            console.log('Variation Data:', chartData);
             
             // Create the area chart
             const ctx = canvas.getContext('2d');
@@ -1708,7 +1708,7 @@ function createVarianceTrendsChart(trucks) {
                 data: {
                     labels: truckNos,
                     datasets: [{
-                        label: 'Variance %',
+                        label: 'Variation %',
                         data: chartData,
                         fill: true,
                         backgroundColor: 'rgba(34, 197, 94, 0.2)', // Light green fill
@@ -1745,7 +1745,7 @@ function createVarianceTrendsChart(trucks) {
                         },
                         title: {
                             display: true,
-                            text: 'Truck Variance Trends',
+                            text: 'Truck Variation Trends',
                             font: {
                                 family: "'Poppins', 'Inter', sans-serif",
                                 size: 18,
@@ -1777,7 +1777,7 @@ function createVarianceTrendsChart(trucks) {
                                     const value = context.parsed.y;
                                     const status = value > 0 ? 'Extra Birds' : value < 0 ? 'Missing Birds' : 'Perfect Match';
                                     return [
-                                        `Variance: ${value.toFixed(2)}%`,
+                                        `Variation: ${value.toFixed(2)}%`,
                                         `Status: ${status}`
                                     ];
                                 }
@@ -1817,7 +1817,7 @@ function createVarianceTrendsChart(trucks) {
                         y: {
                             title: {
                                 display: true,
-                                text: 'Variance Percentage (%)',
+                                text: 'Variation Percentage (%)',
                                 font: {
                                     family: "'Poppins', 'Inter', sans-serif",
                                     size: 14,
@@ -1853,10 +1853,10 @@ function createVarianceTrendsChart(trucks) {
                 }
             });
             
-            console.log('=== Variance Area Chart Created Successfully ===');
+            console.log('=== Variation Area Chart Created Successfully ===');
         })
         .catch(error => {
-            console.error('Error fetching truck variance data:', error);
+            console.error('Error fetching truck variation data:', error);
         });
 }
 
@@ -2200,7 +2200,7 @@ function createMissingByFarmChart(farms) {
         data: {
             labels: labels,
             datasets: [{
-                label: 'Variance (%)',
+                label: 'Variation (%)',
                 data: missingPercentages,
                 borderColor: chartColors.warning, // Yellow
                 backgroundColor: chartColors.warning,

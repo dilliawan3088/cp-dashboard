@@ -48,9 +48,11 @@
         </div>
         <div class="filter-controls">
             <select class="filter-dropdown" id="filterDropdown">
+                <option value="1" selected>Last 1 day</option>
                 <option value="7">7 days</option>
                 <option value="15">15 days</option>
                 <option value="30">30 days</option>
+                <option value="90">90 days</option>
             </select>
         </div>
     </header>
@@ -73,7 +75,7 @@
         <!-- KPIs Section -->
         <section class="kpis-section" id="kpisSection" style="display: none;">
             <div class="section-header">
-                <h2><i class="fas fa-tachometer-alt"></i> Key Performance Indicators</h2>
+                <h2><i class="fas fa-tachometer-alt"></i> KPIs</h2>
                 <p class="section-subtitle">Real-time metrics and insights</p>
             </div>
             <div class="kpi-cards">
@@ -169,17 +171,12 @@
 
         <!-- Visualizations Section -->
         <section class="visualizations" id="visualizations" style="display: none;">
-            <div class="section-header">
-                <h2><i class="fas fa-chart-pie"></i> Data Visualizations</h2>
-                <p class="section-subtitle">Interactive charts and insights</p>
-            </div>
-            
             <div class="charts-grid">
-                <!-- 1. Variance Trends (Full Width) -->
+                <!-- 1. Variation (Full Width) -->
                 <div class="chart-container chart-large">
                     <div class="chart-header">
-                        <h3><i class="fas fa-th"></i> Variance Trends</h3>
-                        <p>Variance intensity visualization across trucks (Green = Extra, Red = Missing)</p>
+                        <h3><i class="fas fa-th"></i> Variation</h3>
+                        <p>+value = extra birds & -value = missing birds</p>
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="varianceTrendsChart" width="800" height="350"></canvas>
@@ -316,6 +313,21 @@
                     <tbody id="truckAlertsTableBody">
                     </tbody>
                 </table>
+            </div>
+            <!-- Pagination Controls -->
+            <div class="pagination-wrapper" id="truckAlertsPagination" style="display: none;">
+                <div class="pagination-info">
+                    <span id="truckAlertsPaginationInfo">Showing 0-0 of 0</span>
+                </div>
+                <div class="pagination-controls">
+                    <button class="pagination-btn" id="truckAlertsPrevBtn" disabled>
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <div class="pagination-pages" id="truckAlertsPageNumbers"></div>
+                    <button class="pagination-btn" id="truckAlertsNextBtn">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
             </div>
         </section>
     </div>
