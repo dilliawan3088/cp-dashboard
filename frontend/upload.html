@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload File - Poultry Processing Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=9">
+    <link rel="stylesheet" href="/static/upload.css?v=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Environment Configuration -->
+    <script>
+        // Set API URL based on environment
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            window.ENV_API_URL = window.ENV_API_URL || 'http://localhost:8001';
+        } else {
+            window.ENV_API_URL = window.ENV_API_URL || window.location.origin;
+        }
+    </script>
+    
+</head>
+<body>
+    <!-- Floating Header -->
+    <header class="floating-header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div>
+                <h1>CP Bird Counter Analysis Dashboard</h1>
+                <p class="subtitle">File Upload & Format Validation</p>
+            </div>
+        </div>
+        <div class="filter-controls">
+            <a href="/" class="back-button">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </header>
+
+    <div class="container upload-container">
+        <!-- Upload Card -->
+        <div class="upload-card">
+            <div class="upload-card-header">
+                <h2><i class="fas fa-cloud-upload-alt"></i> Upload Excel File</h2>
+                <p class="upload-subtitle">Select or drag & drop your Excel file (.xlsx, .xls) or CSV file</p>
+            </div>
+
+            <!-- Download Format Button -->
+            <div class="download-format-section">
+                <button class="download-format-button" id="downloadFormatBtn">
+                    <i class="fas fa-download"></i> Download Format Template
+                </button>
+                <p class="format-hint">Download a sample Excel file with the correct format</p>
+            </div>
+
+            <!-- File Upload Area -->
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-area-content">
+                    <i class="fas fa-file-excel upload-icon"></i>
+                    <h3>Drop your file here</h3>
+                    <p>or</p>
+                    <button class="browse-button" id="browseButton">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </button>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+                    <p class="file-hint">Supported formats: .xlsx, .xls, .csv</p>
+                </div>
+            </div>
+
+            <!-- Selected File Display -->
+            <div class="selected-file" id="selectedFile" style="display: none;">
+                <div class="file-info">
+                    <i class="fas fa-file-excel file-icon"></i>
+                    <div class="file-details">
+                        <span class="file-name" id="fileName"></span>
+                        <span class="file-size" id="fileSize"></span>
+                    </div>
+                    <button class="remove-file-btn" id="removeFileBtn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Validation Status -->
+            <div class="validation-status" id="validationStatus" style="display: none;">
+                <div class="validation-header">
+                    <i class="fas fa-check-circle validation-icon" id="validationIcon"></i>
+                    <span class="validation-message" id="validationMessage"></span>
+                </div>
+                <div class="validation-details" id="validationDetails"></div>
+            </div>
+
+            <!-- Error Messages -->
+            <div class="error-container" id="errorContainer" style="display: none;">
+                <div class="error-header">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Validation Errors</span>
+                </div>
+                <ul class="error-list" id="errorList"></ul>
+            </div>
+
+            <!-- Upload Button -->
+            <div class="upload-actions">
+                <button class="upload-submit-button" id="uploadSubmitBtn" disabled>
+                    <i class="fas fa-upload"></i> Upload File
+                </button>
+            </div>
+        </div>
+
+        <!-- Format Requirements Card -->
+        <div class="requirements-card">
+            <div class="requirements-header">
+                <h3><i class="fas fa-info-circle"></i> Format Requirements</h3>
+            </div>
+            <div class="requirements-content">
+                <p class="requirements-intro">Your Excel file must contain exactly <strong>9 columns</strong> in this exact order:</p>
+                <ol class="columns-list">
+                    <li><strong>NO</strong> - Row number</li>
+                    <li><strong>TRUCK NO</strong> - Truck identifier</li>
+                    <li><strong>D/O Number</strong> - Delivery order number</li>
+                    <li><strong>FARM</strong> - Farm name</li>
+                    <li><strong>D/O Quantity</strong> - Numeric value</li>
+                    <li><strong>BIRD COUNTER</strong> - Numeric value</li>
+                    <li><strong>TOTAL SLAUGHTER</strong> - Numeric value</li>
+                    <li><strong>DOA</strong> - Numeric value (Dead on Arrival)</li>
+                    <li><strong>NON HALAL</strong> - Numeric value</li>
+                </ol>
+                <div class="requirements-note">
+                    <p><i class="fas fa-exclamation-circle"></i> <strong>Important:</strong></p>
+                    <ul>
+                        <li>Column headers must be in row 1</li>
+                        <li>Data rows start from row 2</li>
+                        <li>Columns 5-9 must contain numeric values only</li>
+                        <li>No additional columns are allowed</li>
+                        <li>At least one data row is required</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p id="loadingText">Processing...</p>
+        </div>
+    </div>
+    <script src="/static/upload.js?v=2"></script>
+</body>
+</html>
+

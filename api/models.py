@@ -195,3 +195,12 @@ class HistoricalTrendsResponse(BaseModel):
     """Response model for historical trends"""
     trends: List[HistoricalTrendModel]
 
+
+class ValidationResponse(BaseModel):
+    """Response model for file format validation"""
+    valid: bool
+    errors: List[str]
+    warnings: List[str]
+    headers_found: List[str]
+    headers_expected: List[str]
+

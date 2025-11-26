@@ -554,11 +554,16 @@ function createOverallChart(summary, overallSummary = null, deliveredVsReceived 
                             color: '#4a5568',
                             padding: 12,
                             callback: function(value) {
-                                // Only show clean numbers (multiples of stepSize)
-                                if ( value % cleanStepSize === 0 ) {
+                                // Always show formatted values on Y-axis
+                                // Format as clean numbers (no decimals for whole numbers)
+                                if ( value % 1 === 0 ) {
                                     return new Intl.NumberFormat( 'en-US' ).format( value );
+                                } else {
+                                    return new Intl.NumberFormat( 'en-US', {
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0
+                                    } ).format( value );
                                 }
-                                return '';
                             }
                         },
                         border: {
@@ -1729,7 +1734,7 @@ function createVariationTrendsChart(trucks) {
                 data: {
                     labels: truckNos,
                     datasets: [{
-                        label: 'Variation %',
+                        label: 'Difference Percentage',
                         data: chartData,
                         fill: true,
                         backgroundColor: 'rgba(34, 197, 94, 0.2)', // Light green fill
@@ -1765,18 +1770,7 @@ function createVariationTrendsChart(trucks) {
                             }
                         },
                         title: {
-                            display: true,
-                            text: 'Truck Variation Trends',
-                            font: {
-                                family: "'Poppins', 'Inter', sans-serif",
-                                size: 18,
-                                weight: 'bold'
-                            },
-                            color: '#1a1a1a',
-                            padding: {
-                                top: 10,
-                                bottom: 20
-                            }
+                            display: false
                         },
                         tooltip: {
                             enabled: true,
@@ -1798,7 +1792,7 @@ function createVariationTrendsChart(trucks) {
                                     const value = context.parsed.y;
                                     const status = value > 0 ? 'Extra Birds' : value < 0 ? 'Missing Birds' : 'Perfect Match';
                                     return [
-                                        `Variation: ${value.toFixed(2)}%`,
+                                        `Difference Percentage: ${ value.toFixed( 2 ) }%`,
                                         `Status: ${status}`
                                     ];
                                 }
@@ -1838,7 +1832,7 @@ function createVariationTrendsChart(trucks) {
                         y: {
                             title: {
                                 display: true,
-                                text: 'Variation Percentage (%)',
+                                text: 'Difference Percentage (%)',
                                 font: {
                                     family: "'Poppins', 'Inter', sans-serif",
                                     size: 14,

@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initAnimatedBackground();
     initScrollHeader();
     initFilterControls();
+    initUploadButton(); // Initialize upload button
     initScrollAnimations(); // Add scroll animations
     initTruckAlertsPagination(); // Initialize pagination
     await autoLoadDashboard();
@@ -206,6 +207,22 @@ function initFilterControls() {
         filterDropdown.addEventListener('change', () => {
             const value = filterDropdown.value;
             
+            // Show loading immediately when filter changes
+            const filterText = value === '1' ? 'Last 1 day' :
+                value === '7' ? 'Last 7 days' :
+                    value === '15' ? 'Last 15 days' :
+                        value === '30' ? 'Last 30 days' :
+                            value === '90' ? 'Last 90 days' : 'Loading...';
+
+            console.log( 'Filter changed to:', filterText );
+            showLoading( `Applying filter: ${ filterText }...` );
+
+            // Force a reflow to ensure loading is visible
+            const loadingEl = document.getElementById( 'loading' );
+            if ( loadingEl ) {
+                loadingEl.offsetHeight; // Force reflow
+            }
+
             // Set filter to selected days (1, 7, 15, 30, or 90)
             const daysValue = parseInt( value );
             if ( daysValue === 1 ) {
@@ -227,6 +244,78 @@ function initFilterControls() {
             }
         });
     }
+}
+
+// Initialize upload button
+function initUploadButton () {
+    const uploadButton = document.getElementById( 'uploadButton' );
+
+    if ( uploadButton ) {
+        // Navigate to upload page when upload button is clicked
+        uploadButton.addEventListener( 'click', () => {
+            window.location.href = '/upload.html';
+        } );
+    }
+}
+
+// Handle file upload
+async function handleFileUpload ( file ) {
+    // Validate file type
+    if ( !file.name.endsWith( '.xlsx' ) && !file.name.endsWith( '.xls' ) ) {
+        showError( 'Please select an Excel file (.xlsx or .xls)' );
+        return;
+    }
+
+    try {
+        showLoading( `Uploading ${ file.name }...` );
+        hideError();
+
+        const uploadResponse = await uploadFileToServer( file );
+
+        if ( uploadResponse && uploadResponse.upload_id ) {
+            showLoading( 'Processing file...' );
+            currentUploadId = uploadResponse.upload_id;
+
+            // Set to new file mode
+            isNewFileMode = true;
+            currentFilterDays = null;
+
+            // Update filter dropdown to show "Last 1 day"
+            const filterDropdown = document.getElementById( 'filterDropdown' );
+            if ( filterDropdown ) {
+                filterDropdown.value = '1';
+            }
+
+            // Load and display the new data
+            await loadAndDisplayData( uploadResponse.upload_id );
+
+            console.log( 'File uploaded and processed successfully:', uploadResponse.filename );
+        } else {
+            throw new Error( uploadResponse?.message || 'Upload failed' );
+        }
+    } catch ( error ) {
+        console.error( 'Error uploading file:', error );
+        showError( `Failed to upload file: ${ error.message }` );
+        hideLoading();
+    }
+}
+
+// Upload file to server
+async function uploadFileToServer ( file ) {
+    const formData = new FormData();
+    formData.append( 'file', file );
+
+    const response = await fetch( `${ API_BASE_URL }/upload-file`, {
+        method: 'POST',
+        body: formData
+    } );
+
+    if ( !response.ok ) {
+        const errorData = await response.json().catch( () => ( {} ) );
+        throw new Error( errorData.detail || `Upload failed: ${ response.status }` );
+    }
+
+    return await response.json();
 }
 
 // Scroll header behavior - only show at top
@@ -982,7 +1071,16 @@ function displayTruckTable(trucks, rawData, farms) {
 
 function showLoading(text) {
     if (loading) {
-        loading.style.display = 'block';
+        loading.style.display = 'flex';
+        loading.style.visibility = 'visible';
+        loading.style.opacity = '1';
+    }
+    // Also try to find by ID in case the reference is stale
+    const loadingEl = document.getElementById( 'loading' );
+    if ( loadingEl ) {
+        loadingEl.style.display = 'flex';
+        loadingEl.style.visibility = 'visible';
+        loadingEl.style.opacity = '1';
     }
     if (loadingText) {
         loadingText.textContent = text || 'Loading...';

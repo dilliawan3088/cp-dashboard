@@ -4,7 +4,10 @@ FastAPI application with endpoints for poultry processing dashboard.
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+import io
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from typing import List, Optional, Dict
@@ -21,7 +24,8 @@ import json
 from api.models import (
     UploadResponse, ProcessResponse, DataResponse, HistoryResponse,
     SummaryResponse, RawDataModel, CalculationModel, SummaryModel, HistoryItem,
-    TruckPerformanceModel, FarmPerformanceModel, OverallSummaryModel, HistoricalTrendModel, HistoricalTrendsResponse
+    TruckPerformanceModel, FarmPerformanceModel, OverallSummaryModel, HistoricalTrendModel, HistoricalTrendsResponse,
+    ValidationResponse
 )
 from api.excel_processor import process_excel_file
 from api.data_analyzer import analyze_data
@@ -105,6 +109,14 @@ async def root():
         "exists": os.path.exists(frontend_dir),
         "all_files": file_map[:100] # Limit to first 100 to avoid huge response
     }
+
+@app.get("/upload.html")
+async def upload_page():
+    """Serve upload page"""
+    upload_path = os.path.join(frontend_dir, "upload.html")
+    if os.path.exists(upload_path):
+        return FileResponse(upload_path)
+    raise HTTPException(status_code=404, detail="Upload page not found")
 
 # Create uploads directory
 # On Vercel, we must use /tmp
@@ -813,6 +825,310 @@ async def register_file(filename: str = Query(..., description="Name of the Exce
         upload_date=upload.upload_date,
         message="File registered successfully"
     )
+
+
+@app.post("/upload-file", response_model=UploadResponse)
+async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Upload an Excel file from browser and process it.
+    Accepts multipart/form-data file upload.
+    """
+    # Validate file type
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+    
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Only Excel files (.xlsx, .xls) are allowed")
+    
+    try:
+        # Ensure upload directory exists
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        
+        # Handle duplicate filenames by appending timestamp
+        original_filename = file.filename
+        file_path = os.path.join(UPLOAD_DIR, original_filename)
+        
+        # If file exists, append timestamp to filename
+        if os.path.exists(file_path):
+            name, ext = os.path.splitext(original_filename)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            original_filename = f"{name}_{timestamp}{ext}"
+            file_path = os.path.join(UPLOAD_DIR, original_filename)
+        
+        # Check if file is already registered in database
+        existing_upload = db.query(Upload).filter(Upload.filename == original_filename).first()
+        if existing_upload:
+            # If already processed, return existing upload
+            if existing_upload.processed == 1:
+                return UploadResponse(
+                    upload_id=existing_upload.id,
+                    filename=existing_upload.filename,
+                    upload_date=existing_upload.upload_date,
+                    message="File already processed"
+                )
+            # If not processed, delete old record and re-upload
+            db.delete(existing_upload)
+            db.commit()
+        
+        # Save uploaded file to disk
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        print(f"File uploaded: {original_filename} -> {file_path}")
+        
+        # Create upload record
+        upload = Upload(
+            filename=original_filename,
+            file_path=file_path,
+            processed=0,
+            total_rows=0
+        )
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+        
+        # Process the file immediately
+        try:
+            print(f"Processing uploaded file: {original_filename}...")
+            await process_file_internal(upload.id, db)
+            print(f"Successfully processed: {original_filename}")
+        except Exception as e:
+            print(f"Error processing file '{original_filename}': {str(e)}")
+            # Still return upload_id even if processing fails, so user can retry
+            return UploadResponse(
+                upload_id=upload.id,
+                filename=upload.filename,
+                upload_date=upload.upload_date,
+                message=f"File uploaded but processing failed: {str(e)}"
+            )
+        
+        return UploadResponse(
+            upload_id=upload.id,
+            filename=upload.filename,
+            upload_date=upload.upload_date,
+            message="File uploaded and processed successfully"
+        )
+        
+    except Exception as e:
+        print(f"Error uploading file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+
+
+@app.post("/validate-file-format", response_model=ValidationResponse)
+async def validate_file_format(file: UploadFile = File(...)):
+    """
+    Validate Excel/CSV file format before upload.
+    Checks for required column headers and data types.
+    """
+    if not file.filename:
+        return ValidationResponse(
+            valid=False,
+            errors=["No file provided"],
+            warnings=[],
+            headers_found=[],
+            headers_expected=["NO", "TRUCK NO", "D/O Number", "FARM", "D/O Quantity", "BIRD COUNTER", "TOTAL SLAUGHTER", "DOA", "NON HALAL"]
+        )
+    
+    # Check file extension
+    if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
+        return ValidationResponse(
+            valid=False,
+            errors=["File must be Excel (.xlsx, .xls) or CSV (.csv) format"],
+            warnings=[],
+            headers_found=[],
+            headers_expected=["NO", "TRUCK NO", "D/O Number", "FARM", "D/O Quantity", "BIRD COUNTER", "TOTAL SLAUGHTER", "DOA", "NON HALAL"]
+        )
+    
+    errors = []
+    warnings = []
+    headers_found = []
+    headers_expected = ["NO", "TRUCK NO", "D/O Number", "FARM", "D/O Quantity", "BIRD COUNTER", "TOTAL SLAUGHTER", "DOA", "NON HALAL"]
+    
+    try:
+        # Save file temporarily for validation
+        temp_dir = os.path.join(UPLOAD_DIR, "temp")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_file_path = os.path.join(temp_dir, f"temp_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
+        
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Read file - handle both Excel and CSV
+        is_csv = file.filename.endswith('.csv')
+        
+        if is_csv:
+            # Handle CSV file
+            import pandas as pd
+            try:
+                df = pd.read_csv(temp_file_path, nrows=0)  # Read only headers
+                headers_found = [str(col).strip() for col in df.columns.tolist()]
+                
+                # Read a few rows for data type validation
+                df_data = pd.read_csv(temp_file_path, nrows=5)
+                max_rows = len(df_data) + 1  # +1 for header
+            except Exception as e:
+                errors.append(f"Error reading CSV file: {str(e)}")
+                headers_found = []
+                df_data = None
+                max_rows = 0
+        else:
+            # Handle Excel file
+            from openpyxl import load_workbook
+            
+            try:
+                workbook = load_workbook(temp_file_path, data_only=True)
+                sheet = workbook.active
+                
+                # Read header row (row 1)
+                header_row = 1
+                headers_found = []
+                for col in range(1, 20):  # Check up to column S
+                    cell_value = sheet.cell(row=header_row, column=col).value
+                    if cell_value:
+                        headers_found.append(str(cell_value).strip())
+                    else:
+                        break
+                
+                max_rows = sheet.max_row
+                workbook.close()
+            except Exception as e:
+                errors.append(f"Error reading Excel file: {str(e)}")
+                headers_found = []
+                max_rows = 0
+        
+        # Check if we have exactly 9 columns
+        if len(headers_found) != 9:
+            errors.append(f"Expected exactly 9 columns, found {len(headers_found)}")
+        
+        # Normalize headers for comparison (case-insensitive, strip whitespace)
+        headers_found_normalized = [h.upper().strip() for h in headers_found]
+        headers_expected_normalized = [h.upper().strip() for h in headers_expected]
+        
+        # Check each required header
+        for i, expected_header in enumerate(headers_expected_normalized):
+            if i >= len(headers_found_normalized):
+                errors.append(f"Missing column {i+1}: '{headers_expected[i]}'")
+            else:
+                found_header = headers_found_normalized[i]
+                # Allow flexible matching (e.g., "D/O Number" vs "D/O NUMBER")
+                if expected_header not in found_header and found_header not in expected_header:
+                    # Try partial match
+                    if not any(part in found_header for part in expected_header.split() if len(part) > 2):
+                        errors.append(f"Column {i+1} mismatch: Expected '{headers_expected[i]}', found '{headers_found[i]}'")
+        
+        # Check for extra columns
+        if len(headers_found) > 9:
+            extra_cols = headers_found[9:]
+            errors.append(f"Extra columns found: {', '.join(extra_cols)}. Only 9 columns are allowed.")
+        
+        # Validate data types in first few data rows
+        numeric_column_indices = [4, 5, 6, 7, 8]  # Columns 5-9 (0-indexed: 4, 5, 6, 7, 8)
+        numeric_column_names = ["D/O Quantity", "BIRD COUNTER", "TOTAL SLAUGHTER", "DOA", "NON HALAL"]
+        
+        if is_csv and df_data is not None:
+            # Validate CSV data types
+            for row_idx, row in df_data.iterrows():
+                for col_idx, col_name in enumerate(numeric_column_names):
+                    col_index = numeric_column_indices[col_idx]
+                    if col_index < len(headers_found):
+                        value = row.iloc[col_index] if col_index < len(row) else None
+                        if value is not None and pd.notna(value):
+                            try:
+                                float(value)
+                            except (ValueError, TypeError):
+                                if str(value).strip():
+                                    errors.append(f"Row {row_idx + 2}, Column '{col_name}': Expected numeric value, found '{value}'")
+        elif not is_csv and max_rows > 1:
+            # Validate Excel data types
+            from openpyxl import load_workbook
+            workbook = load_workbook(temp_file_path, data_only=True)
+            sheet = workbook.active
+            
+            data_start_row = 2
+            rows_to_check = min(5, max_rows - 1)
+            
+            for row_num in range(data_start_row, data_start_row + rows_to_check):
+                for col_idx, col_num in enumerate(numeric_column_indices):
+                    col_num_1_indexed = col_num + 1  # Convert to 1-indexed
+                    cell_value = sheet.cell(row=row_num, column=col_num_1_indexed).value
+                    if cell_value is not None:
+                        try:
+                            float(cell_value)
+                        except (ValueError, TypeError):
+                            if str(cell_value).strip():
+                                errors.append(f"Row {row_num}, Column '{numeric_column_names[col_idx]}': Expected numeric value, found '{cell_value}'")
+            
+            workbook.close()
+        
+        # Check if we have at least one data row
+        if max_rows < 2:
+            errors.append("No data rows found. File must contain at least one data row after headers.")
+        
+        # Clean up temp file
+        try:
+            os.remove(temp_file_path)
+        except:
+            pass
+        
+        valid = len(errors) == 0
+        
+        return ValidationResponse(
+            valid=valid,
+            errors=errors,
+            warnings=warnings,
+            headers_found=headers_found,  # Return ALL headers found, not just first 9
+            headers_expected=headers_expected
+        )
+        
+    except Exception as e:
+        return ValidationResponse(
+            valid=False,
+            errors=[f"Validation error: {str(e)}"],
+            warnings=[],
+            headers_found=[],
+            headers_expected=headers_expected
+        )
+
+
+@app.get("/download-format")
+async def download_format():
+    """
+    Download the sample Excel template file.
+    Serves the 'sample format.xlsx' file from the base directory.
+    """
+    try:
+        # Look for sample format file in base directory
+        sample_file_path = os.path.join(base_dir, "sample format.xlsx")
+        
+        # Also check current directory as fallback
+        if not os.path.exists(sample_file_path):
+            sample_file_path = os.path.join(os.getcwd(), "sample format.xlsx")
+        
+        # If still not found, check relative to api directory
+        if not os.path.exists(sample_file_path):
+            api_dir = os.path.dirname(os.path.abspath(__file__))
+            sample_file_path = os.path.join(os.path.dirname(api_dir), "sample format.xlsx")
+        
+        if not os.path.exists(sample_file_path):
+            raise HTTPException(
+                status_code=404, 
+                detail="Sample format file not found. Please ensure 'sample format.xlsx' exists in the project root."
+            )
+        
+        # Return the file
+        return FileResponse(
+            sample_file_path,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename="sample_format.xlsx",
+            headers={
+                "Content-Disposition": "attachment; filename=sample_format.xlsx"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error serving template file: {str(e)}")
 
 
 @app.get("/latest")
