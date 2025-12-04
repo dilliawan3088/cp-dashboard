@@ -1,12 +1,23 @@
 """
 Database models and operations for poultry processing dashboard.
 Uses Neon/PostgreSQL database (requires DATABASE_URL environment variable).
+Loads DATABASE_URL from .env file if available.
 """
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import os
+
+# Load environment variables from .env file if it exists
+try:
+    from dotenv import load_dotenv
+    # Load .env file from the project root (parent directory of api/)
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+except ImportError:
+    pass  # python-dotenv not installed, use system environment variables
 
 Base = declarative_base()
 
