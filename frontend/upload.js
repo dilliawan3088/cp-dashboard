@@ -12,11 +12,15 @@ console.log('Upload page - API Base URL:', API_BASE_URL);
 // Global variables
 let selectedFile = null;
 let validationResult = null;
+let selectedDate = null;
 
 // DOM Elements - will be initialized in DOMContentLoaded
 let uploadArea;
 let fileInput;
 let browseButton;
+let dataDateInput;
+let dateErrorMessage;
+let fileHintDisabled;
 let selectedFileDiv;
 let fileNameSpan;
 let fileSizeSpan;
@@ -40,6 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadArea = document.getElementById('uploadArea');
     fileInput = document.getElementById('fileInput');
     browseButton = document.getElementById('browseButton');
+    dataDateInput = document.getElementById('dataDate');
+    dateErrorMessage = document.getElementById('dateErrorMessage');
+    fileHintDisabled = document.getElementById('fileHintDisabled');
     selectedFileDiv = document.getElementById('selectedFile');
     fileNameSpan = document.getElementById('fileName');
     fileSizeSpan = document.getElementById('fileSize');
@@ -59,15 +66,89 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadArea: !!uploadArea,
         fileInput: !!fileInput,
         browseButton: !!browseButton,
+        dataDateInput: !!dataDateInput,
         downloadFormatBtn: !!downloadFormatBtn
     });
     
+    initDateInput();
     initUploadArea();
     initFileInput();
     initButtons();
     
     console.log('Upload page initialized');
 });
+
+// Initialize date input
+function initDateInput() {
+    if (!dataDateInput) return;
+
+    dataDateInput.addEventListener('change', (e) => {
+        const dateValue = e.target.value;
+        if (dateValue) {
+            selectedDate = dateValue;
+            enableFileSelection();
+            hideDateError();
+        } else {
+            selectedDate = null;
+            disableFileSelection();
+        }
+    });
+}
+
+// Enable file selection after date is selected
+function enableFileSelection() {
+    if (fileInput) {
+        fileInput.disabled = false;
+    }
+    if (browseButton) {
+        browseButton.disabled = false;
+    }
+    if (uploadArea) {
+        uploadArea.classList.remove('disabled');
+    }
+    if (fileHintDisabled) {
+        fileHintDisabled.style.display = 'none';
+    }
+}
+
+// Disable file selection when date is not selected
+function disableFileSelection() {
+    if (fileInput) {
+        fileInput.disabled = true;
+        fileInput.value = '';
+    }
+    if (browseButton) {
+        browseButton.disabled = true;
+    }
+    if (uploadArea) {
+        uploadArea.classList.add('disabled');
+    }
+    if (fileHintDisabled) {
+        fileHintDisabled.style.display = 'flex';
+    }
+    // Clear selected file if date is removed
+    if (selectedFile) {
+        clearFile();
+    }
+}
+
+// Show date error message
+function showDateError() {
+    if (dateErrorMessage) {
+        dateErrorMessage.style.display = 'flex';
+        // Hide after 3 seconds
+        setTimeout(() => {
+            hideDateError();
+        }, 3000);
+    }
+}
+
+// Hide date error message
+function hideDateError() {
+    if (dateErrorMessage) {
+        dateErrorMessage.style.display = 'none';
+    }
+}
 
 // Initialize upload area (drag & drop)
 function initUploadArea() {
@@ -81,7 +162,14 @@ function initUploadArea() {
 
     // Highlight drop area when item is dragged over it
     ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, highlight, false);
+        uploadArea.addEventListener(eventName, (e) => {
+            if (selectedDate) {
+                highlight(e);
+            } else {
+                preventDefaults(e);
+                showDateError();
+            }
+        }, false);
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
@@ -89,7 +177,14 @@ function initUploadArea() {
     });
 
     // Handle dropped files
-    uploadArea.addEventListener('drop', handleDrop, false);
+    uploadArea.addEventListener('drop', (e) => {
+        if (!selectedDate) {
+            preventDefaults(e);
+            showDateError();
+            return;
+        }
+        handleDrop(e);
+    }, false);
 }
 
 function preventDefaults(e) {
@@ -136,10 +231,23 @@ function initButtons() {
             e.preventDefault();
             e.stopPropagation();
             console.log('Browse button clicked');
-            if (fileInput) {
+            
+            // Check if date is selected
+            if (!selectedDate || !dataDateInput || !dataDateInput.value) {
+                console.log('Date not selected, showing error');
+                showDateError();
+                // Focus on date input
+                if (dataDateInput) {
+                    dataDateInput.focus();
+                    dataDateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+            
+            if (fileInput && !fileInput.disabled) {
                 fileInput.click();
             } else {
-                console.error('fileInput not found');
+                console.error('fileInput not found or disabled');
             }
         });
     } else {
@@ -209,6 +317,7 @@ function clearFile() {
     hideValidationStatus();
     hideErrorContainer();
     disableUploadButton();
+    // Note: We don't clear the date here, as user might want to upload another file for the same date
 }
 
 // Validate file format
@@ -342,12 +451,22 @@ async function handleUpload() {
         return;
     }
 
+    if (!selectedDate || !dataDateInput || !dataDateInput.value) {
+        alert('Please select a date first.');
+        showDateError();
+        if (dataDateInput) {
+            dataDateInput.focus();
+        }
+        return;
+    }
+
     showLoading('Uploading and processing file...');
 
     try {
         // Create FormData
         const formData = new FormData();
         formData.append('file', selectedFile);
+        formData.append('date', selectedDate);
 
         // Upload file
         const response = await fetch(`${API_BASE_URL}/upload-file`, {

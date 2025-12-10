@@ -58,17 +58,39 @@
                 <p class="format-hint">Download a sample Excel file with the correct format</p>
             </div>
 
+            <!-- Date Selection Section -->
+            <div class="date-selection-section">
+                <label for="dataDate" class="date-label">
+                    <i class="fas fa-calendar-alt"></i> Select Data Date <span class="required-asterisk">*</span>
+                </label>
+                <input 
+                    type="date" 
+                    id="dataDate" 
+                    class="date-input" 
+                    required
+                    title="Please select a date before uploading file"
+                >
+                <p class="date-hint">Select the date for which this data belongs</p>
+                <div class="date-error-message" id="dateErrorMessage" style="display: none;">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>Kindly update the date</span>
+                </div>
+            </div>
+
             <!-- File Upload Area -->
             <div class="upload-area" id="uploadArea">
                 <div class="upload-area-content">
                     <i class="fas fa-file-excel upload-icon"></i>
                     <h3>Drop your file here</h3>
                     <p>or</p>
-                    <button class="browse-button" id="browseButton">
+                    <button class="browse-button" id="browseButton" disabled>
                         <i class="fas fa-folder-open"></i> Browse Files
                     </button>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;" disabled>
                     <p class="file-hint">Supported formats: .xlsx, .xls, .csv</p>
+                    <p class="file-hint-disabled" id="fileHintDisabled" style="display: block;">
+                        <i class="fas fa-info-circle"></i> Please select a date first
+                    </p>
                 </div>
             </div>
 

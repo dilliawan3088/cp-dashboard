@@ -3201,6 +3201,12 @@ async function createHistoricalTrendDateChart() {
     
     const ctx = canvas.getContext('2d');
     
+    // Get API base URL (use same logic as app.js)
+    const API_BASE_URL = window.ENV_API_URL || 
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? 'http://localhost:8001' 
+            : window.location.origin);
+    
     // Destroy existing chart if it exists
     if (historicalTrendDateChartInstance) {
         try {
@@ -3224,12 +3230,19 @@ async function createHistoricalTrendDateChart() {
     
     try {
         // Fetch all uploads to get dates from filenames
-        const uploadsResponse = await fetch('/api/uploads');
+        const uploadsResponse = await fetch(`${API_BASE_URL}/api/uploads`);
         if (!uploadsResponse.ok) {
-            console.error('Failed to fetch uploads');
+            console.error('Failed to fetch uploads:', uploadsResponse.status, uploadsResponse.statusText);
+            showNoDataMessage(canvas, 'Failed to load upload data');
             return;
         }
         const uploads = await uploadsResponse.json();
+        
+        if (!uploads || uploads.length === 0) {
+            console.warn('No uploads found in database');
+            showNoDataMessage(canvas, 'No data available. Please upload files to see historical trends.');
+            return;
+        }
         
         // Group data by date (from filename)
         const dateGroups = {};
@@ -3238,6 +3251,7 @@ async function createHistoricalTrendDateChart() {
         for (const upload of uploads) {
             const date = extractDateFromFilename(upload.filename);
             if (!date) {
+                console.warn(`Could not extract date from filename: ${upload.filename}`);
                 continue;
             }
             
@@ -3248,45 +3262,53 @@ async function createHistoricalTrendDateChart() {
             const dateKey = `${year}-${month}-${day}`; // YYYY-MM-DD format
             
             // Fetch truck data for this upload
-            const trucksResponse = await fetch(`/trucks/${upload.id}`);
-            if (!trucksResponse.ok) {
-                continue;
-            }
-            const trucksData = await trucksResponse.json();
-            
-            if (!dateGroups[dateKey]) {
-                dateGroups[dateKey] = {
-                    doQuantity: 0,
-                    totalSlaughter: 0,
-                    totalDOA: 0,
-                    netDifference: 0
-                };
-            }
-            
-            // Aggregate data from trucks
-            const trucks = trucksData.trucks || [];
-            
-            if (trucks.length === 0) {
-                continue;
-            }
-            
-            trucks.forEach(truck => {
-                const doQty = truck.total_birds_arrived || 0;
-                const slaughter = truck.total_birds_slaughtered || 0;
-                const doa = truck.total_doa || 0;
-                const variance = truck.total_variance || 0;
+            try {
+                const trucksResponse = await fetch(`${API_BASE_URL}/trucks/${upload.id}`);
+                if (!trucksResponse.ok) {
+                    console.warn(`Failed to fetch trucks for upload ${upload.id}:`, trucksResponse.status);
+                    continue;
+                }
+                const trucksData = await trucksResponse.json();
                 
-                dateGroups[dateKey].doQuantity += doQty;
-                dateGroups[dateKey].totalSlaughter += slaughter;
-                dateGroups[dateKey].totalDOA += doa;
-                dateGroups[dateKey].netDifference += variance;
-            });
+                if (!dateGroups[dateKey]) {
+                    dateGroups[dateKey] = {
+                        doQuantity: 0,
+                        totalSlaughter: 0,
+                        totalDOA: 0,
+                        netDifference: 0
+                    };
+                }
+                
+                // Aggregate data from trucks
+                const trucks = trucksData.trucks || [];
+                
+                if (trucks.length === 0) {
+                    console.warn(`No truck data for upload ${upload.id}`);
+                    continue;
+                }
+                
+                trucks.forEach(truck => {
+                    const doQty = truck.total_birds_arrived || 0;
+                    const slaughter = truck.total_birds_slaughtered || 0;
+                    const doa = truck.total_doa || 0;
+                    const variance = truck.total_variance || 0;
+                    
+                    dateGroups[dateKey].doQuantity += doQty;
+                    dateGroups[dateKey].totalSlaughter += slaughter;
+                    dateGroups[dateKey].totalDOA += doa;
+                    dateGroups[dateKey].netDifference += variance;
+                });
+            } catch (error) {
+                console.error(`Error fetching trucks for upload ${upload.id}:`, error);
+                continue;
+            }
         }
         
         // Sort dates
         const sortedDates = Object.keys(dateGroups).sort();
         if (sortedDates.length === 0) {
-            console.warn('No date data available for chart');
+            console.warn('No date data available for chart after processing uploads');
+            showNoDataMessage(canvas, 'No data available. Please upload files to see historical trends.');
             return;
         }
         
@@ -3535,6 +3557,58 @@ async function createHistoricalTrendDateChart() {
         console.log('✅ Historical Trend by Date chart created successfully!');
     } catch (error) {
         console.error('❌ Error creating historical trend by date chart:', error);
+        showNoDataMessage(canvas, 'Error loading chart data. Please try refreshing the page.');
+    }
+}
+
+// Helper function to show "No data" message on chart canvas
+function showNoDataMessage(canvas, message) {
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const parent = canvas.parentElement;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Create a message element
+    const messageDiv = document.createElement('div');
+    messageDiv.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #6b7280;
+        font-family: 'Poppins', sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        z-index: 10;
+    `;
+    messageDiv.innerHTML = `
+        <i class="fas fa-info-circle" style="font-size: 24px; color: #9ca3af; margin-bottom: 8px; display: block;"></i>
+        <div>${message}</div>
+    `;
+    
+    // Make sure parent has relative positioning
+    if (parent) {
+        const parentStyle = window.getComputedStyle(parent);
+        if (parentStyle.position === 'static') {
+            parent.style.position = 'relative';
+        }
+        
+        // Remove existing message if any
+        const existingMessage = parent.querySelector('.no-data-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+        
+        messageDiv.className = 'no-data-message';
+        parent.appendChild(messageDiv);
     }
 }
 

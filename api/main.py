@@ -1,7 +1,7 @@
 """
 FastAPI application with endpoints for poultry processing dashboard.
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -828,10 +828,15 @@ async def register_file(filename: str = Query(..., description="Name of the Exce
 
 
 @app.post("/upload-file", response_model=UploadResponse)
-async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_file(
+    file: UploadFile = File(...), 
+    date: str = Form(...),
+    db: Session = Depends(get_db)
+):
     """
     Upload an Excel file from browser and process it.
-    Accepts multipart/form-data file upload.
+    Accepts multipart/form-data file upload with required date parameter.
+    File will be renamed to {DD-MM-YYYY}.xlsx format based on the selected date.
     """
     # Validate file type
     if not file.filename:
@@ -840,15 +845,24 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="Only Excel files (.xlsx, .xls) are allowed")
     
+    # Validate and parse date (required)
+    try:
+        # Parse date from YYYY-MM-DD format (HTML date input format)
+        date_obj = datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Expected YYYY-MM-DD")
+    
     try:
         # Ensure upload directory exists
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         
-        # Handle duplicate filenames by appending timestamp
-        original_filename = file.filename
+        # Generate filename from date: DD-MM-YYYY.xlsx
+        formatted_date = date_obj.strftime("%d-%m-%Y")
+        original_filename = f"{formatted_date}.xlsx"
+        
         file_path = os.path.join(UPLOAD_DIR, original_filename)
         
-        # If file exists, append timestamp to filename
+        # If file with same date already exists, append timestamp
         if os.path.exists(file_path):
             name, ext = os.path.splitext(original_filename)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
