@@ -3,8 +3,8 @@
  * Fully automatic - no user interaction required
  */
     
-// API Base URL - can be overridden by environment variable
-const API_BASE_URL = 'https://cp-dashboard-nine.vercel.app';
+// API Base URL - empty for relative paths
+const API_BASE_URL = '';
 console.log('API Base URL:', API_BASE_URL);
 
 let currentUploadId = null;

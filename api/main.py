@@ -160,22 +160,35 @@ async def startup_event():
 def extract_date_from_filename(filename: str) -> Optional[datetime]:
     """
     Extract date from filename in format: day-month-year.xlsx
+    Handles variations like day-month-year_timestamp.xlsx
     Returns datetime object or None if parsing fails
     """
     if not filename:
         return None
     try:
-        # Remove .xlsx extension
-        name_without_ext = filename.replace('.xlsx', '').replace('.xls', '')
+        # Remove extension
+        name_without_ext = filename.rsplit('.', 1)[0]
+        # Handle filenames with underscores (e.g., 12-11-2025_20251210_170326)
+        # Take only the first part before the first underscore
+        base_name = name_without_ext.split('_')[0]
+        
         # Try to parse day-month-year format
-        parts = name_without_ext.split('-')
+        parts = base_name.split('-')
         if len(parts) == 3:
             day = int(parts[0])
             month = int(parts[1])
-            year = int(parts[2])
-            if 1 <= month <= 12 and 1 <= day <= 31 and year > 2000:
+            year_str = str(parts[2])
+            
+            # If year part is too long (e.g. 20252025...), just take the first 4 chars
+            if len(year_str) > 4:
+                year = int(year_str[:4])
+            else:
+                year = int(year_str)
+            
+            # Additional validation to prevent OverflowError
+            if 1 <= month <= 12 and 1 <= day <= 31 and 2000 <= year <= 2100:
                 return datetime(year, month, day)
-    except (ValueError, IndexError) as e:
+    except (ValueError, IndexError, OverflowError) as e:
         print(f"Error extracting date from filename '{filename}': {e}")
     return None
 
@@ -1814,6 +1827,65 @@ async def get_all_historical_trends(
         }))
     
     return HistoricalTrendsResponse(trends=trends_list)
+
+
+@app.get("/api/historical-trends-by-date")
+async def get_historical_trends_by_date(
+    days: Optional[int] = Query(None, description="Aggregate data from last N days"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get aggregated KPI data grouped by date directly from the database.
+    This replaces the slow frontend-side loop-based aggregation.
+    """
+    # 1. Get processed uploads in range
+    uploads = get_uploads_in_date_range(db, days=days)
+    if not uploads:
+        return {"data": []}
+    
+    upload_ids = [u.id for u in uploads]
+    
+    # 2. Get OverallSummary records for these uploads
+    summaries = db.query(OverallSummary).filter(OverallSummary.upload_id.in_(upload_ids)).all()
+    
+    # 3. Create a map of upload_id to summary
+    summary_map = {s.upload_id: s for s in summaries}
+    
+    # 4. Group by date extracted from filename
+    date_groups = {}
+    for upload in uploads:
+        file_date = extract_date_from_filename(upload.filename)
+        if not file_date:
+            continue
+            
+        summary = summary_map.get(upload.id)
+        if not summary:
+            # Fallback: if OverallSummary record is missing, return empty or skip
+            continue
+            
+        date_key = file_date.strftime('%Y-%m-%d')
+        if date_key not in date_groups:
+            date_groups[date_key] = {
+                'date': date_key,
+                'total_delivered': 0,
+                'total_birds_counted': 0,
+                'net_difference': 0,
+                'total_doa': 0,
+                'total_slaughter': 0,
+                'total_non_halal': 0
+            }
+            
+        date_groups[date_key]['total_delivered'] += summary.total_delivered or 0
+        date_groups[date_key]['total_birds_counted'] += summary.total_birds_counted or 0
+        date_groups[date_key]['net_difference'] += summary.net_difference or 0
+        date_groups[date_key]['total_doa'] += summary.total_doa or 0
+        date_groups[date_key]['total_slaughter'] += summary.total_slaughter or 0
+        date_groups[date_key]['total_non_halal'] += summary.total_non_halal or 0
+        
+    # 5. Convert to sorted list by date
+    result = sorted(date_groups.values(), key=lambda x: x['date'])
+    
+    return {"data": result}
 
 
 @app.get("/api/uploads")

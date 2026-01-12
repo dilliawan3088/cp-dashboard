@@ -2,10 +2,8 @@
  * Upload page JavaScript - handles file validation and upload
  */
 
-// API Base URL
-const API_BASE_URL = window.ENV_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? 'http://localhost:8001' 
-    : window.location.origin);
+// API Base URL - empty for relative paths
+const API_BASE_URL = '';
 
 console.log('Upload page - API Base URL:', API_BASE_URL);
 

@@ -3201,11 +3201,8 @@ async function createHistoricalTrendDateChart() {
     
     const ctx = canvas.getContext('2d');
     
-    // Get API base URL (use same logic as app.js)
-    const API_BASE_URL = window.ENV_API_URL || 
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-            ? 'http://localhost:8001' 
-            : window.location.origin);
+    // Get API base URL - empty for relative paths
+    const API_BASE_URL = '';
     
     // Destroy existing chart if it exists
     if (historicalTrendDateChartInstance) {
@@ -3229,97 +3226,30 @@ async function createHistoricalTrendDateChart() {
     }
     
     try {
-        // Fetch all uploads to get dates from filenames
-        const uploadsResponse = await fetch(`${API_BASE_URL}/api/uploads`);
-        if (!uploadsResponse.ok) {
-            console.error('Failed to fetch uploads:', uploadsResponse.status, uploadsResponse.statusText);
-            showNoDataMessage(canvas, 'Failed to load upload data');
+        // Use optimized backend endpoint to get trends for the last 30 days
+        const response = await fetch( `${ API_BASE_URL }/api/historical-trends-by-date?days=30` );
+        if ( !response.ok ) {
+            console.error( 'Failed to fetch historical trends:', response.status );
+            showNoDataMessage( canvas, 'Failed to load historical trend data' );
             return;
         }
-        const uploads = await uploadsResponse.json();
+        const resultData = await response.json();
+        const trends = resultData.data || [];
         
-        if (!uploads || uploads.length === 0) {
-            console.warn('No uploads found in database');
-            showNoDataMessage(canvas, 'No data available. Please upload files to see historical trends.');
-            return;
-        }
-        
-        // Group data by date (from filename)
-        const dateGroups = {};
-        console.log(`Processing ${uploads.length} uploads for historical trend...`);
-        
-        for (const upload of uploads) {
-            const date = extractDateFromFilename(upload.filename);
-            if (!date) {
-                console.warn(`Could not extract date from filename: ${upload.filename}`);
-                continue;
-            }
-            
-            // Use local date to avoid timezone issues with toISOString()
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const dateKey = `${year}-${month}-${day}`; // YYYY-MM-DD format
-            
-            // Fetch truck data for this upload
-            try {
-                const trucksResponse = await fetch(`${API_BASE_URL}/trucks/${upload.id}`);
-                if (!trucksResponse.ok) {
-                    console.warn(`Failed to fetch trucks for upload ${upload.id}:`, trucksResponse.status);
-                    continue;
-                }
-                const trucksData = await trucksResponse.json();
-                
-                if (!dateGroups[dateKey]) {
-                    dateGroups[dateKey] = {
-                        doQuantity: 0,
-                        totalSlaughter: 0,
-                        totalDOA: 0,
-                        netDifference: 0
-                    };
-                }
-                
-                // Aggregate data from trucks
-                const trucks = trucksData.trucks || [];
-                
-                if (trucks.length === 0) {
-                    console.warn(`No truck data for upload ${upload.id}`);
-                    continue;
-                }
-                
-                trucks.forEach(truck => {
-                    const doQty = truck.total_birds_arrived || 0;
-                    const slaughter = truck.total_birds_slaughtered || 0;
-                    const doa = truck.total_doa || 0;
-                    const variance = truck.total_variance || 0;
-                    
-                    dateGroups[dateKey].doQuantity += doQty;
-                    dateGroups[dateKey].totalSlaughter += slaughter;
-                    dateGroups[dateKey].totalDOA += doa;
-                    dateGroups[dateKey].netDifference += variance;
-                });
-            } catch (error) {
-                console.error(`Error fetching trucks for upload ${upload.id}:`, error);
-                continue;
-            }
-        }
-        
-        // Sort dates
-        const sortedDates = Object.keys(dateGroups).sort();
-        if (sortedDates.length === 0) {
-            console.warn('No date data available for chart after processing uploads');
-            showNoDataMessage(canvas, 'No data available. Please upload files to see historical trends.');
+        if ( !trends || trends.length === 0 ) {
+            console.warn( 'No historical data available' );
+            showNoDataMessage( canvas, 'No historical data available yet.' );
             return;
         }
         
-        const labels = sortedDates.map(d => {
-            const date = new Date(d);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const labels = trends.map( t => {
+            const date = new Date( t.date );
+            return date.toLocaleDateString( 'en-US', { month: 'short', day: 'numeric' } );
         });
-        const doQuantities = sortedDates.map(d => dateGroups[d].doQuantity);
-        const totalSlaughter = sortedDates.map(d => dateGroups[d].totalSlaughter);
-        const totalDOA = sortedDates.map(d => dateGroups[d].totalDOA);
-        const netDifference = sortedDates.map(d => dateGroups[d].netDifference);
+        const doQuantities = trends.map( t => t.total_delivered );
+        const totalSlaughter = trends.map( t => t.total_slaughter );
+        const totalDOA = trends.map( t => t.total_doa );
+        const netDifference = trends.map( t => t.net_difference );
         
         // Calculate max values for scaling
         const maxLarge = Math.max(...doQuantities, ...totalSlaughter, 100);
