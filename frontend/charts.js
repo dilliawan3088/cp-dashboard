@@ -669,7 +669,7 @@ function createFarmLossChart(farms, deliveredVsReceived = null) {
         }
     }
     
-    // Extract data for 3 bars: D/O Quantity, Missing Birds, Extra Birds
+    // Extract data for 3 bars: D/O Quantity, Shortfall Birds, Extra Birds
     const labels = farmData.map(item => item.farm || 'Unknown');
     const doQuantities = farmData.map(item => item.total_do_quantity || 0);
     const missingBirds = farmData.map(item => {
@@ -683,7 +683,7 @@ function createFarmLossChart(farms, deliveredVsReceived = null) {
     
     console.log('Farm Performance Chart - Labels:', labels);
     console.log('D/O Quantities:', doQuantities);
-    console.log('Missing Birds:', missingBirds);
+    console.log( 'Shortfall Birds:', missingBirds );
     console.log('Extra Birds:', extraBirds);
     
     // Calculate max value for scaling using adaptive stepped scaling
@@ -977,7 +977,7 @@ function createFarmLossChart(farms, deliveredVsReceived = null) {
                         }
                     },
                     y1: {
-                        // Right Y-axis: Missing Birds and Extra Birds (smaller scale)
+                        // Right Y-axis: Shortfall Birds and Extra Birds (smaller scale)
                         type: 'linear',
                         position: 'right',
                         beginAtZero: true,
@@ -1115,7 +1115,7 @@ function createTruckLossChart(trucks) {
         }
     }
     
-    // Extract data for 3 bars: D/O Quantity, Missing Birds, Extra Birds
+    // Extract data for 3 bars: D/O Quantity, Shortfall Birds, Extra Birds
     console.log('📊 Processing truck data:', trucks);
     const labels = trucks.map(t => t.truck_no || 'Unknown');
     const doQuantities = trucks.map(t => t.total_birds_arrived || 0);
@@ -1130,7 +1130,7 @@ function createTruckLossChart(trucks) {
     
     console.log('Truck Performance Chart - Labels:', labels);
     console.log('D/O Quantities:', doQuantities);
-    console.log('Missing Birds:', missingBirds);
+    console.log( 'Shortfall Birds:', missingBirds );
     console.log('Extra Birds:', extraBirds);
     
     // Validate data
@@ -1492,7 +1492,7 @@ function createTruckLossChart(trucks) {
                         }
                     },
                     y: {
-                        // Left Y-axis: Missing Birds and Extra Birds (smaller scale)
+                        // Left Y-axis: Shortfall Birds and Extra Birds (smaller scale)
                         type: 'linear',
                         position: 'left',
                         beginAtZero: true,
@@ -1802,7 +1802,7 @@ function createVariationTrendsChart(trucks) {
                             callbacks: {
                                 label: function(context) {
                                     const value = context.parsed.y;
-                                    const status = value > 0 ? 'Extra Birds' : value < 0 ? 'Missing Birds' : 'Perfect Match';
+                                    const status = value > 0 ? 'Extra Birds' : value < 0 ? 'Shortfall Birds' : 'Perfect Match';
                                     return [
                                         `Difference Percentage: ${ value.toFixed( 2 ) }%`,
                                         `Status: ${status}`
@@ -2309,7 +2309,7 @@ function createMissingByFarmChart(farms) {
                         label: function(context) {
                             const value = context.parsed.y;
                             if (value > 0) {
-                                return `Missing Birds: ${value.toFixed(2)}%`;
+                                return `Shortfall Birds: ${ value.toFixed( 2 ) }%`;
                             } else if (value < 0) {
                                 return `Extra Birds: ${Math.abs(value).toFixed(2)}%`;
                             } else {
@@ -2410,7 +2410,7 @@ function createDeliveredVsReceivedChart(data) {
     const farms = data.map(item => item.farm || 'Unknown');
     const differences = data.map(item => item.difference || 0);
     
-    // Calculate Missing Birds (negative difference) and Extra Birds (positive difference)
+    // Calculate Shortfall Birds (negative difference) and Extra Birds (positive difference)
     const missingBirds = differences.map(diff => diff < 0 ? Math.abs(diff) : 0);
     const extraBirds = differences.map(diff => diff > 0 ? diff : 0);
     
@@ -2424,7 +2424,7 @@ function createDeliveredVsReceivedChart(data) {
             labels: farms,
             datasets: [
                 {
-                    label: 'Missing Birds',
+                    label: 'Shortfall Birds',
                     data: missingBirds,
                     backgroundColor: chartColors.danger, // Red for missing
                     borderColor: chartColors.danger,
@@ -2503,7 +2503,7 @@ function createDeliveredVsReceivedChart(data) {
                     suggestedMax: maxMissing * 1.1,
                     title: {
                         display: true,
-                        text: 'Missing Birds (Count)',
+                        text: 'Shortfall Birds (Count)',
                         font: {
                             size: 13,
                             weight: '600',
