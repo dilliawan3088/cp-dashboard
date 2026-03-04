@@ -1888,6 +1888,71 @@ async def get_historical_trends_by_date(
     return {"data": result}
 
 
+@app.delete("/api/delete-upload-by-date/{date}")
+async def delete_upload_by_date(date: str, db: Session = Depends(get_db)):
+    """
+    Delete all uploads for a given date (YYYY-MM-DD).
+    Cascade deletes all related data (raw_data, calculations, summaries, etc.).
+    """
+    print(f"\n=== DELETE REQUEST for date: {date} ===")
+    try:
+        target_date = datetime.strptime(date, '%Y-%m-%d')
+        print(f"Parsed target_date: {target_date}, date part: {target_date.date()}")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+    
+    # Find ALL uploads (both processed and unprocessed) whose filename matches this date
+    all_uploads = db.query(Upload).all()
+    print(f"Total uploads in database: {len(all_uploads)}")
+    
+    uploads_to_delete = []
+    for upload in all_uploads:
+        file_date = extract_date_from_filename(upload.filename)
+        if file_date:
+            matches = file_date.date() == target_date.date()
+            if matches:
+                print(f"  MATCH: Upload {upload.id} ({upload.filename}) -> date: {file_date.date()}, processed: {upload.processed}")
+                uploads_to_delete.append(upload)
+        else:
+            print(f"  SKIP: Upload {upload.id} ({upload.filename}) -> could not extract date")
+    
+    if not uploads_to_delete:
+        print(f"  NO uploads found matching {date}")
+        raise HTTPException(status_code=404, detail=f"No uploads found for date {date}")
+    
+    deleted_count = len(uploads_to_delete)
+    deleted_filenames = [u.filename for u in uploads_to_delete]
+    print(f"Deleting {deleted_count} uploads: {deleted_filenames}")
+    
+    # Delete each upload (cascade handles all child tables)
+    for upload in uploads_to_delete:
+        print(f"  Deleting upload {upload.id} ({upload.filename})")
+        db.delete(upload)
+    
+    db.commit()
+    print(f"=== DELETE COMPLETE for {date} ===\n")
+    
+    return {
+        "status": "success",
+        "date": date,
+        "deleted_count": deleted_count,
+        "deleted_filenames": deleted_filenames,
+        "message": f"Successfully deleted {deleted_count} upload(s) for {date}"
+    }
+
+
+@app.get("/api/upload-dates")
+async def get_upload_dates(db: Session = Depends(get_db)):
+    """Return list of dates (YYYY-MM-DD) that have processed uploads."""
+    uploads = db.query(Upload).filter(Upload.processed == 1).all()
+    dates = []
+    for upload in uploads:
+        file_date = extract_date_from_filename(upload.filename)
+        if file_date:
+            dates.append(file_date.strftime('%Y-%m-%d'))
+    return {"dates": sorted(set(dates))}
+
+
 @app.get("/api/uploads")
 async def get_uploads(db: Session = Depends(get_db)):
     """

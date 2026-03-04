@@ -716,7 +716,7 @@ function createFarmLossChart(farms, deliveredVsReceived = null) {
                         hoverBorderWidth: 3
                     },
                     {
-                        label: 'Missing Birds',
+                        label: 'Short Fall Birds',
                         data: missingBirds,
                         backgroundColor: chartColors.danger, // Red
                         borderColor: chartColors.danger,
@@ -1016,7 +1016,7 @@ function createFarmLossChart(farms, deliveredVsReceived = null) {
                         },
                         title: {
                             display: true,
-                            text: 'Missing / Extra Birds',
+                            text: 'Short Fall / Extra Birds',
                             font: {
                                 size: 11,
                                 weight: '600',
@@ -1202,7 +1202,7 @@ function createTruckLossChart(trucks) {
                         } : {}
                     },
                     {
-                        label: 'Missing Birds',
+                        label: 'Short Fall Birds',
                         data: missingBirds,
                         backgroundColor: '#ef4444', // Red
                         borderColor: '#dc2626',
@@ -1536,7 +1536,7 @@ function createTruckLossChart(trucks) {
                         },
                         title: {
                             display: true,
-                            text: 'Missing / Extra Birds',
+                            text: 'Short Fall / Extra Birds',
                             font: {
                                 size: 12,
                                 weight: '600',
@@ -1684,9 +1684,21 @@ function createVariationTrendsChart(trucks) {
         return;
     }
     
-    // Fetch truck variation data from API
-    const uploadId = window.dashboardApp.currentUploadId || 1;
-    const apiUrl = `${API_BASE_URL}/truck-farm-variance/${uploadId}`;
+    // Fetch truck variation data from API with correct upload ID and date range
+    const uploadId = window.dashboardApp?.currentUploadId || 18;
+    let apiUrl = `${ API_BASE_URL }/truck-farm-variance/${ uploadId }`;
+    // Add date range or days params if set
+    const params = new URLSearchParams();
+    const dateRange = window.dashboardApp?.currentDateRange;
+    const days = window.dashboardApp?.currentFilterDays;
+    if ( dateRange && dateRange.startDate && dateRange.endDate ) {
+        params.append( 'start_date', dateRange.startDate );
+        params.append( 'end_date', dateRange.endDate );
+    } else if ( days ) {
+        params.append( 'days', days );
+    }
+    const queryString = params.toString();
+    if ( queryString ) apiUrl += '?' + queryString;
     
     fetch(apiUrl)
         .then(response => response.json())

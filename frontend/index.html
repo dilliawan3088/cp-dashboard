@@ -35,13 +35,45 @@
             </div>
         </div>
         <div class="filter-controls">
-            <select class="filter-dropdown" id="filterDropdown">
-                <option value="1" selected>Last 1 day</option>
-                <option value="7">7 days</option>
-                <option value="15">15 days</option>
-                <option value="30">30 days</option>
-                <option value="90">90 days</option>
-            </select>
+            <div class="date-filter-group">
+                <button class="date-filter-btn" id="fromDateBtn">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>From: <span id="fromDateLabel">Select date</span></span>
+                </button>
+                <button class="date-filter-btn" id="toDateBtn">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>To: <span id="toDateLabel">Select date</span></span>
+                </button>
+            </div>
+            <!-- Calendar Popup (shared, repositioned per button) -->
+            <div class="calendar-popup" id="calendarPopup" style="display:none;">
+                <div class="calendar-header-row">
+                    <button class="cal-nav-btn" id="calPrev"><i class="fas fa-chevron-left"></i></button>
+                    <span class="cal-month-label" id="calMonthLabel"></span>
+                    <button class="cal-nav-btn" id="calNext"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="calendar-weekdays">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
+            </div>
+            <button class="delete-btn" id="deleteBtn" title="Delete Upload Data">
+                <i class="fas fa-trash-alt"></i> Delete
+            </button>
+            <!-- Delete Calendar Popup -->
+            <div class="delete-calendar-popup" id="deleteCalendarPopup" style="display:none;">
+                <button class="delete-cal-close" id="deleteCalClose" title="Close">&times;</button>
+                <div class="delete-cal-title">Delete Upload Data</div>
+                <div class="calendar-header-row">
+                    <button class="cal-nav-btn" id="deleteCalPrev"><i class="fas fa-chevron-left"></i></button>
+                    <span class="cal-month-label" id="deleteCalMonthLabel"></span>
+                    <button class="cal-nav-btn" id="deleteCalNext"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="calendar-weekdays">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div class="calendar-grid" id="deleteCalendarGrid"></div>
+            </div>
             <button class="upload-button" id="uploadButton" title="Upload Excel File">
                 <i class="fas fa-upload"></i> Upload
             </button>

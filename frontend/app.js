@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initScrollHeader();
     initFilterControls();
     initUploadButton(); // Initialize upload button
+    initDeleteCalendar(); // Initialize delete calendar
     initScrollAnimations(); // Add scroll animations
     initTruckAlertsPagination(); // Initialize pagination
     await autoLoadDashboard();
@@ -199,50 +200,250 @@ function triggerDashboardAnimations () {
     }, 100 );
 }
 
-// Initialize filter controls
-function initFilterControls() {
-    const filterDropdown = document.getElementById('filterDropdown');
-    
-    if (filterDropdown) {
-        filterDropdown.addEventListener('change', () => {
-            const value = filterDropdown.value;
-            
-            // Show loading immediately when filter changes
-            const filterText = value === '1' ? 'Last 1 day' :
-                value === '7' ? 'Last 7 days' :
-                    value === '15' ? 'Last 15 days' :
-                        value === '30' ? 'Last 30 days' :
-                            value === '90' ? 'Last 90 days' : 'Loading...';
+// ============================================================
+// Calendar Date Range Filter
+// ============================================================
+let availableDates = []; // Dates with uploaded data (YYYY-MM-DD)
+let calendarTarget = null; // 'from' or 'to'
+let calendarViewYear = 2026;
+let calendarViewMonth = 1; // 0-indexed (January = 0)
+let selectedFromDate = null; // YYYY-MM-DD
+let selectedToDate = null;   // YYYY-MM-DD
 
-            console.log( 'Filter changed to:', filterText );
-            showLoading( `Applying filter: ${ filterText }...` );
+async function initFilterControls () {
+    // Fetch available dates from backend
+    try {
+        const res = await fetch( `${ API_BASE_URL }/api/upload-dates` );
+        if ( res.ok ) {
+            const data = await res.json();
+            availableDates = data.dates || [];
+            console.log( 'Available dates:', availableDates );
 
-            // Force a reflow to ensure loading is visible
-            const loadingEl = document.getElementById( 'loading' );
-            if ( loadingEl ) {
-                loadingEl.offsetHeight; // Force reflow
+            // Default: set both From and To to the latest available date
+            if ( availableDates.length > 0 ) {
+                const latestDate = availableDates[ availableDates.length - 1 ];
+                selectedFromDate = latestDate;
+                selectedToDate = latestDate;
+                updateDateLabels();
+
+                // Set calendar view to the latest date's month
+                const d = new Date( latestDate );
+                calendarViewYear = d.getFullYear();
+                calendarViewMonth = d.getMonth();
             }
+        }
+    } catch ( e ) {
+        console.warn( 'Could not fetch upload dates:', e );
+    }
 
-            // Set filter to selected days (1, 7, 15, 30, or 90)
-            const daysValue = parseInt( value );
-            if ( daysValue === 1 ) {
-                // 1 day = show latest Excel data only (no aggregation)
-                isNewFileMode = true;
-                currentFilterDays = null; // null means show only latest file
+    // Button click handlers
+    const fromBtn = document.getElementById( 'fromDateBtn' );
+    const toBtn = document.getElementById( 'toDateBtn' );
+
+    if ( fromBtn ) {
+        fromBtn.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            if ( calendarTarget === 'from' ) {
+                closeCalendar();
             } else {
-                // 7, 15, 30, or 90 days = aggregate data from last N days
-                isNewFileMode = false;
-                currentFilterDays = daysValue;
+                openCalendar( 'from', fromBtn );
             }
-            currentDateRange = null;
-            
-            // Reload data with new filter
-            if (currentUploadId) {
-                loadAndDisplayData(currentUploadId);
+        } );
+    }
+
+    if ( toBtn ) {
+        toBtn.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            if ( calendarTarget === 'to' ) {
+                closeCalendar();
             } else {
-                autoLoadDashboard();
+                openCalendar( 'to', toBtn );
             }
-        });
+        } );
+    }
+
+    // Month navigation
+    const prevBtn = document.getElementById( 'calPrev' );
+    const nextBtn = document.getElementById( 'calNext' );
+    if ( prevBtn ) {
+        prevBtn.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            calendarViewMonth--;
+            if ( calendarViewMonth < 0 ) {
+                calendarViewMonth = 11;
+                calendarViewYear--;
+            }
+            renderCalendar();
+        } );
+    }
+    if ( nextBtn ) {
+        nextBtn.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            calendarViewMonth++;
+            if ( calendarViewMonth > 11 ) {
+                calendarViewMonth = 0;
+                calendarViewYear++;
+            }
+            renderCalendar();
+        } );
+    }
+
+    // Close calendar on outside click
+    document.addEventListener( 'click', ( e ) => {
+        const popup = document.getElementById( 'calendarPopup' );
+        if ( popup && popup.style.display !== 'none' ) {
+            if ( !popup.contains( e.target ) ) {
+                closeCalendar();
+            }
+        }
+    } );
+}
+
+function openCalendar ( target, anchorBtn ) {
+    calendarTarget = target;
+    const popup = document.getElementById( 'calendarPopup' );
+    if ( !popup ) return;
+
+    // Set calendar view to the currently selected date's month
+    const currentDate = target === 'from' ? selectedFromDate : selectedToDate;
+    if ( currentDate ) {
+        const d = new Date( currentDate );
+        calendarViewYear = d.getFullYear();
+        calendarViewMonth = d.getMonth();
+    }
+
+    renderCalendar();
+    popup.style.display = 'block';
+
+    // Highlight active button
+    document.getElementById( 'fromDateBtn' )?.classList.toggle( 'active', target === 'from' );
+    document.getElementById( 'toDateBtn' )?.classList.toggle( 'active', target === 'to' );
+}
+
+function closeCalendar () {
+    const popup = document.getElementById( 'calendarPopup' );
+    if ( popup ) popup.style.display = 'none';
+    calendarTarget = null;
+    document.getElementById( 'fromDateBtn' )?.classList.remove( 'active' );
+    document.getElementById( 'toDateBtn' )?.classList.remove( 'active' );
+}
+
+function renderCalendar () {
+    const grid = document.getElementById( 'calendarGrid' );
+    const label = document.getElementById( 'calMonthLabel' );
+    if ( !grid || !label ) return;
+
+    const monthNames = [ 'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December' ];
+    label.textContent = `${ monthNames[ calendarViewMonth ] } ${ calendarViewYear }`;
+
+    grid.innerHTML = '';
+
+    // First day of month and total days
+    const firstDay = new Date( calendarViewYear, calendarViewMonth, 1 ).getDay();
+    const daysInMonth = new Date( calendarViewYear, calendarViewMonth + 1, 0 ).getDate();
+
+    // Empty cells for days before the 1st
+    for ( let i = 0; i < firstDay; i++ ) {
+        const empty = document.createElement( 'div' );
+        empty.className = 'cal-day empty';
+        grid.appendChild( empty );
+    }
+
+    // Day cells
+    for ( let day = 1; day <= daysInMonth; day++ ) {
+        const dateStr = `${ calendarViewYear }-${ String( calendarViewMonth + 1 ).padStart( 2, '0' ) }-${ String( day ).padStart( 2, '0' ) }`;
+        const cell = document.createElement( 'div' );
+        cell.className = 'cal-day';
+        cell.textContent = day;
+
+        const isAvailable = availableDates.includes( dateStr );
+        const isSelectedFrom = dateStr === selectedFromDate;
+        const isSelectedTo = dateStr === selectedToDate;
+        const isInRange = selectedFromDate && selectedToDate && dateStr >= selectedFromDate && dateStr <= selectedToDate;
+
+        if ( isAvailable ) {
+            cell.classList.add( 'available' );
+            if ( isSelectedFrom || isSelectedTo ) {
+                cell.classList.add( 'selected' );
+            } else if ( isInRange ) {
+                cell.classList.add( 'in-range' );
+            }
+            cell.addEventListener( 'click', ( e ) => {
+                e.stopPropagation();
+                selectDate( dateStr );
+            } );
+        } else {
+            cell.classList.add( 'unavailable' );
+        }
+
+        grid.appendChild( cell );
+    }
+}
+
+function selectDate ( dateStr ) {
+    if ( calendarTarget === 'from' ) {
+        selectedFromDate = dateStr;
+        // If from date is after to date, reset to date
+        if ( selectedToDate && dateStr > selectedToDate ) {
+            selectedToDate = dateStr;
+        }
+    } else if ( calendarTarget === 'to' ) {
+        selectedToDate = dateStr;
+        // If to date is before from date, reset from date
+        if ( selectedFromDate && dateStr < selectedFromDate ) {
+            selectedFromDate = dateStr;
+        }
+    }
+
+    updateDateLabels();
+    closeCalendar();
+
+    // If both dates selected, apply the filter
+    if ( selectedFromDate && selectedToDate ) {
+        applyDateRange();
+    }
+}
+
+function updateDateLabels () {
+    const fromLabel = document.getElementById( 'fromDateLabel' );
+    const toLabel = document.getElementById( 'toDateLabel' );
+
+    if ( fromLabel ) {
+        fromLabel.textContent = selectedFromDate ? formatDateLabel( selectedFromDate ) : 'Select date';
+    }
+    if ( toLabel ) {
+        toLabel.textContent = selectedToDate ? formatDateLabel( selectedToDate ) : 'Select date';
+    }
+}
+
+function formatDateLabel ( dateStr ) {
+    // Convert YYYY-MM-DD to DD-MM-YYYY for display
+    const parts = dateStr.split( '-' );
+    return `${ parts[ 2 ] }-${ parts[ 1 ] }-${ parts[ 0 ] }`;
+}
+
+function applyDateRange () {
+    console.log( `Applying date range: ${ selectedFromDate } to ${ selectedToDate }` );
+    showLoading( `Loading data: ${ formatDateLabel( selectedFromDate ) } to ${ formatDateLabel( selectedToDate ) }...` );
+
+    if ( selectedFromDate === selectedToDate ) {
+        // Single day: show only that upload's data (no aggregation)
+        isNewFileMode = true;
+        currentFilterDays = null;
+        currentDateRange = { startDate: selectedFromDate, endDate: selectedToDate };
+    } else {
+        // Date range: aggregate
+        isNewFileMode = false;
+        currentFilterDays = null;
+        currentDateRange = { startDate: selectedFromDate, endDate: selectedToDate };
+    }
+
+    // Reload data with new filter
+    if ( currentUploadId ) {
+        loadAndDisplayData( currentUploadId );
+    } else {
+        autoLoadDashboard();
     }
 }
 
@@ -255,6 +456,194 @@ function initUploadButton () {
         uploadButton.addEventListener( 'click', () => {
             window.location.href = '/upload.html';
         } );
+    }
+}
+
+// ============================================================
+// Delete Calendar System
+// ============================================================
+let deleteAvailableDates = [];
+let deleteCalViewYear = 2026;
+let deleteCalViewMonth = 1; // 0-indexed
+
+function initDeleteCalendar () {
+    const deleteBtn = document.getElementById( 'deleteBtn' );
+    const closeBtn = document.getElementById( 'deleteCalClose' );
+    const prevBtn = document.getElementById( 'deleteCalPrev' );
+    const nextBtn = document.getElementById( 'deleteCalNext' );
+
+    if ( deleteBtn ) {
+        deleteBtn.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            const popup = document.getElementById( 'deleteCalendarPopup' );
+            if ( popup && popup.style.display !== 'none' ) {
+                closeDeleteCalendar();
+            } else {
+                openDeleteCalendar();
+            }
+        } );
+    }
+
+    if ( closeBtn ) {
+        closeBtn.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            closeDeleteCalendar();
+        } );
+    }
+
+    if ( prevBtn ) {
+        prevBtn.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            deleteCalViewMonth--;
+            if ( deleteCalViewMonth < 0 ) {
+                deleteCalViewMonth = 11;
+                deleteCalViewYear--;
+            }
+            renderDeleteCalendar();
+        } );
+    }
+
+    if ( nextBtn ) {
+        nextBtn.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            deleteCalViewMonth++;
+            if ( deleteCalViewMonth > 11 ) {
+                deleteCalViewMonth = 0;
+                deleteCalViewYear++;
+            }
+            renderDeleteCalendar();
+        } );
+    }
+}
+
+async function openDeleteCalendar () {
+    // Fetch fresh available dates
+    try {
+        const res = await fetch( `${ API_BASE_URL }/api/upload-dates` );
+        if ( res.ok ) {
+            const data = await res.json();
+            deleteAvailableDates = data.dates || [];
+        }
+    } catch ( e ) {
+        console.warn( 'Could not fetch upload dates for delete calendar:', e );
+    }
+
+    // Set calendar to latest date's month
+    if ( deleteAvailableDates.length > 0 ) {
+        const latest = deleteAvailableDates[ deleteAvailableDates.length - 1 ];
+        const d = new Date( latest );
+        deleteCalViewYear = d.getFullYear();
+        deleteCalViewMonth = d.getMonth();
+    }
+
+    renderDeleteCalendar();
+    const popup = document.getElementById( 'deleteCalendarPopup' );
+    if ( popup ) popup.style.display = 'block';
+}
+
+function closeDeleteCalendar () {
+    const popup = document.getElementById( 'deleteCalendarPopup' );
+    if ( popup ) popup.style.display = 'none';
+}
+
+function renderDeleteCalendar () {
+    const grid = document.getElementById( 'deleteCalendarGrid' );
+    const label = document.getElementById( 'deleteCalMonthLabel' );
+    if ( !grid || !label ) return;
+
+    const monthNames = [ 'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December' ];
+    label.textContent = `${ monthNames[ deleteCalViewMonth ] } ${ deleteCalViewYear }`;
+
+    grid.innerHTML = '';
+
+    const firstDay = new Date( deleteCalViewYear, deleteCalViewMonth, 1 ).getDay();
+    const daysInMonth = new Date( deleteCalViewYear, deleteCalViewMonth + 1, 0 ).getDate();
+
+    // Empty cells
+    for ( let i = 0; i < firstDay; i++ ) {
+        const empty = document.createElement( 'div' );
+        empty.className = 'cal-day empty';
+        grid.appendChild( empty );
+    }
+
+    // Day cells
+    for ( let day = 1; day <= daysInMonth; day++ ) {
+        const dateStr = `${ deleteCalViewYear }-${ String( deleteCalViewMonth + 1 ).padStart( 2, '0' ) }-${ String( day ).padStart( 2, '0' ) }`;
+        const cell = document.createElement( 'div' );
+        cell.className = 'cal-day';
+        cell.textContent = day;
+
+        if ( deleteAvailableDates.includes( dateStr ) ) {
+            cell.classList.add( 'available' );
+            cell.addEventListener( 'click', ( e ) => {
+                e.stopPropagation();
+                deleteUploadByDate( dateStr );
+            } );
+        } else {
+            cell.classList.add( 'unavailable' );
+        }
+
+        grid.appendChild( cell );
+    }
+}
+
+async function deleteUploadByDate ( dateStr ) {
+    const displayDate = formatDateLabel( dateStr );
+    const confirmed = confirm( `Are you sure you want to delete all data for ${ displayDate }?\n\nThis will permanently remove this upload and all its related data from the database.` );
+
+    if ( !confirmed ) return;
+
+    try {
+        const res = await fetch( `${ API_BASE_URL }/api/delete-upload-by-date/${ dateStr }`, {
+            method: 'DELETE'
+        } );
+
+        if ( res.ok ) {
+            const result = await res.json();
+            console.log( 'Delete result:', result );
+            alert( `Successfully deleted data for ${ displayDate }.\n${ result.deleted_count } upload(s) removed.` );
+
+            // Remove the deleted date from available dates
+            deleteAvailableDates = deleteAvailableDates.filter( d => d !== dateStr );
+
+            // Also update the filter calendar's available dates
+            availableDates = availableDates.filter( d => d !== dateStr );
+
+            // If the deleted date was selected in the filter calendar, reset to latest
+            if ( selectedFromDate === dateStr || selectedToDate === dateStr ) {
+                if ( availableDates.length > 0 ) {
+                    const latest = availableDates[ availableDates.length - 1 ];
+                    selectedFromDate = latest;
+                    selectedToDate = latest;
+                } else {
+                    selectedFromDate = null;
+                    selectedToDate = null;
+                }
+                updateDateLabels();
+            }
+
+            // Re-render delete calendar (date now shows as unavailable)
+            renderDeleteCalendar();
+
+            // Refresh the dashboard data
+            if ( availableDates.length > 0 ) {
+                currentDateRange = { startDate: selectedFromDate, endDate: selectedToDate };
+                if ( selectedFromDate === selectedToDate ) {
+                    isNewFileMode = true;
+                } else {
+                    isNewFileMode = false;
+                }
+                currentFilterDays = null;
+                autoLoadDashboard();
+            }
+        } else {
+            const err = await res.json();
+            alert( `Failed to delete: ${ err.detail || 'Unknown error' }` );
+        }
+    } catch ( e ) {
+        console.error( 'Delete error:', e );
+        alert( `Error deleting data: ${ e.message }` );
     }
 }
 
@@ -279,12 +668,7 @@ async function handleFileUpload ( file ) {
             // Set to new file mode
             isNewFileMode = true;
             currentFilterDays = null;
-
-            // Update filter dropdown to show "Last 1 day"
-            const filterDropdown = document.getElementById( 'filterDropdown' );
-            if ( filterDropdown ) {
-                filterDropdown.value = '1';
-            }
+            currentDateRange = null;
 
             // Load and display the new data
             await loadAndDisplayData( uploadResponse.upload_id );
@@ -375,31 +759,21 @@ async function autoLoadDashboard() {
         if (data.upload_id) {
             showLoading(`Loading data from: ${data.filename || 'file'}...`);
             currentUploadId = data.upload_id;
+            // Expose to charts.js
+            if ( !window.dashboardApp ) window.dashboardApp = { chartInstances: {} };
+            window.dashboardApp.currentUploadId = data.upload_id;
             
             // Check if this is a new file (uploaded within last hour) - if so, show only that file
             // Otherwise, use default filter (7 days)
-            const isNewFile = data.is_new_file || false;
-            if (isNewFile) {
-                isNewFileMode = true;
-                currentFilterDays = 0;
-                // Update UI to show "Latest File" as active
-                document.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.dataset.days === '0') {
-                        btn.classList.add('active');
-                    }
-                });
-            } else {
-                // Default: 1 day (latest Excel data)
-                isNewFileMode = true;
-                currentFilterDays = 0;
-                // Update UI to show "Last 1 day" as active
-                document.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                    if ( btn.dataset.days === '0' ) {
-                        btn.classList.add('active');
-                    }
-                });
+            // Use the calendar-selected date range (already set by initFilterControls)
+            isNewFileMode = true;
+            currentFilterDays = null;
+            // If calendar dates are set, use them; otherwise show latest file only
+            if ( selectedFromDate && selectedToDate ) {
+                currentDateRange = { startDate: selectedFromDate, endDate: selectedToDate };
+                if ( selectedFromDate !== selectedToDate ) {
+                    isNewFileMode = false;
+                }
             }
             
             await loadAndDisplayData(data.upload_id);
@@ -477,6 +851,12 @@ async function loadAndDisplayData(uploadId) {
         // For other days, use the days value for aggregation
         const daysParam = isNewFileMode ? null : ( currentFilterDays || null );
         const dateRangeParam = currentDateRange;
+
+        // Expose current filter state for charts.js (used by createVariationTrendsChart)
+        if ( !window.dashboardApp ) window.dashboardApp = { chartInstances: {} };
+        window.dashboardApp.currentUploadId = uploadId;
+        window.dashboardApp.currentFilterDays = daysParam;
+        window.dashboardApp.currentDateRange = dateRangeParam;
         
         showLoading('Loading KPIs...');
         const summaryResponse = await fetch(buildApiUrl('/summary', uploadId, daysParam, dateRangeParam));
