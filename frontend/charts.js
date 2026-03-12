@@ -202,6 +202,7 @@ function createVisualizations(trucks, farms, summary, overallSummary = null, del
                 console.log('Creating farm charts...');
                 createFarmLossChart(farms, deliveredVsReceived);
                 createMissingByFarmChart(farms);
+                createDeathByTruckChart( farms ); // Death % by Farm
             } else {
                 console.warn('No farm data provided');
             }
@@ -209,8 +210,7 @@ function createVisualizations(trucks, farms, summary, overallSummary = null, del
             if (trucks && trucks.length > 0) {
                 console.log('Creating truck charts...');
                 createTruckLossChart(trucks);
-                createVariationTrendsChart(trucks);
-                createDeathByTruckChart(trucks);
+                createVariationTrendsChart( trucks );
             } else {
                 console.warn('No truck data provided');
             }
@@ -1887,304 +1887,219 @@ function createVariationTrendsChart(trucks) {
         });
 }
 
-function createDeathByTruckChart(trucks) {
-    console.log('=== createDeathByTruckChart START (LOLLIPOP CHART) ===');
+function createDeathByTruckChart ( farms ) {
+    console.log( '=== createDeathByFarmChart START (Death % by Farm) ===' );
     const canvas = document.getElementById('deathByTruckChart');
     if (!canvas) {
         console.warn('deathByTruckChart canvas not found');
         return;
     }
-    
+
     if (typeof Chart === 'undefined') {
         console.error('❌ Chart.js is not loaded!');
         return;
     }
-    
+
     const ctx = canvas.getContext('2d');
-    
+
     // Destroy existing chart if it exists
     if (window.dashboardApp.chartInstances.deathByTruckChart) {
         try {
             window.dashboardApp.chartInstances.deathByTruckChart.destroy();
         } catch (e) {
-            console.warn('Error destroying existing death by truck chart:', e);
+            console.warn( 'Error destroying existing chart:', e );
         }
     }
-    
-    if (!trucks || trucks.length === 0) {
-        console.warn('No truck data available for death chart');
+
+    if ( !farms || farms.length === 0 ) {
+        console.warn( 'No farm data available for death % chart' );
         return;
     }
-    
-    // Set fixed height for horizontal chart (vertical bars)
+
+    // Set fixed height
     const canvasContainer = canvas.parentElement;
     if (canvasContainer) {
         canvasContainer.style.height = '450px';
     }
-    
-    const labels = trucks.map(t => t.truck_no || 'Unknown');
-    const doaCounts = trucks.map(t => t.total_doa || 0);
-    const deathPercentages = trucks.map(t => t.death_percentage || 0);
-    
-    // Calculate max value for scaling
-    const maxDOA = Math.max(...doaCounts, 1);
-    
-    // Color based on DOA count (green for low, red for high)
-    const colors = doaCounts.map(count => {
-        if (count > 5) {
-            return '#dc2626'; // Dark red for high DOA
+
+    // Use farm name and death_percentage = (total_doa / total_birds_arrived) * 100
+    const labels = farms.map( f => f.farm || 'Unknown' );
+    const deathPercentages = farms.map( f => {
+        if ( f.death_percentage !== undefined && f.death_percentage !== null ) {
+            return parseFloat( f.death_percentage ) || 0;
         }
-        return '#059669'; // Dark green for normal DOA
+        // Fallback: calculate manually
+        const doa = f.total_doa || 0;
+        const arrived = f.total_birds_arrived || 1;
+        return ( doa / arrived ) * 100;
     });
-    
-    console.log('Death Rate by Truck - Labels:', labels);
-    console.log('DOA Counts:', doaCounts);
-    console.log('Death Percentages:', deathPercentages);
-    
-    // Register lollipop plugin BEFORE creating the chart
+
+    const maxVal = Math.max( ...deathPercentages, 0.5 );
+
+    // Color coding: green <1%, orange 1-2%, red >2%
+    const colors = deathPercentages.map( pct => {
+        if ( pct > 2 ) return 'rgba(220, 38, 38, 0.85)';   // red
+        if ( pct > 1 ) return 'rgba(245, 158, 11, 0.85)';   // orange
+        return 'rgba(16, 185, 129, 0.85)';           // green
+    } );
+    const borderColors = deathPercentages.map( pct => {
+        if ( pct > 2 ) return '#dc2626';
+        if ( pct > 1 ) return '#f59e0b';
+        return '#059669';
+    } );
+
+    // Lollipop circles plugin
     const lollipopPlugin = {
         id: 'lollipopCircles',
         afterDatasetsDraw: (chart) => {
             const ctx = chart.ctx;
-            const meta = chart.getDatasetMeta(0);
-            
+            const meta = chart.getDatasetMeta( 0 );
             meta.data.forEach((bar, index) => {
-                if (bar.hidden || !bar) return;
-                
+                if ( bar.hidden || !bar ) return;
                 try {
-                    const x = bar.x;
-                    const y = bar.y;
-                    const color = colors[index];
-                    
-                    // Draw circle (lollipop head) at end of bar
                     ctx.save();
                     ctx.beginPath();
-                    ctx.arc(x, y, 9, 0, 2 * Math.PI);
-                    ctx.fillStyle = color;
+                    ctx.arc( bar.x, bar.y, 9, 0, 2 * Math.PI );
+                    ctx.fillStyle = borderColors[ index ];
                     ctx.fill();
                     ctx.strokeStyle = '#ffffff';
                     ctx.lineWidth = 2.5;
                     ctx.stroke();
                     ctx.restore();
-                } catch (e) {
-                    console.warn('Error drawing lollipop circle:', e);
-                }
+                } catch ( e ) { /* ignore */ }
             });
         }
     };
-    
-    // DON'T register globally - we'll add it as a chart-specific plugin
-    console.log('Lollipop plugin defined (will be added to chart only)');
-    
+
     try {
         const chart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'DOA Count per Truck',
-                    data: doaCounts,
+                    label: 'Death %',
+                    data: deathPercentages,
                     backgroundColor: colors,
-                    borderColor: colors,
+                    borderColor: borderColors,
                     borderWidth: 2,
                     borderRadius: 0,
-                    barThickness: 3, // Very thin bars for lollipop stems
+                    barThickness: 3,
                     maxBarThickness: 3,
                     categoryPercentage: 0.85,
                     barPercentage: 0.75
                 }]
             },
-            plugins: [lollipopPlugin], // Add plugin ONLY to this chart
+            plugins: [ lollipopPlugin ],
             options: {
-                indexAxis: 'x', // Vertical orientation (standard bar chart)
+                indexAxis: 'x',
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: {
-                    duration: 0 // Disable initial animation
-                },
+                animation: { duration: 0 },
                 layout: {
-                    padding: {
-                        top: 50, // More space for top labels
-                        bottom: 30,
-                        left: 30,
-                        right: 30
-                    }
+                    padding: { top: 50, bottom: 30, left: 30, right: 30 }
                 },
                 plugins: {
-                    legend: {
-                        display: false
-                    },
+                    legend: { display: false },
                     tooltip: {
                         enabled: true,
-                        backgroundColor: 'rgba(255, 255, 255, 0.98)',
-                        padding: 12,
-                        titleFont: {
-                            size: 13,
-                            weight: '600',
-                            family: "'Poppins', 'Inter', sans-serif"
-                        },
-                        bodyFont: {
-                            size: 12,
-                            family: "'Poppins', 'Inter', sans-serif"
-                        },
-                        borderColor: 'rgba(0, 212, 255, 0.5)',
-                        borderWidth: 2,
-                        cornerRadius: 8,
-                        displayColors: true,
+                        backgroundColor: 'rgba(255,255,255,0.98)',
                         titleColor: '#1a1a1a',
                         bodyColor: '#1a1a1a',
-                        boxPadding: 6,
+                        borderColor: 'rgba(0,212,255,0.5)',
+                        borderWidth: 2,
+                        cornerRadius: 8,
+                        padding: 12,
                         callbacks: {
                             label: function(context) {
-                                if (!context || !context.parsed || context.parsed.y === undefined || context.parsed.y === null) {
-                                    return '';
-                                }
-                                const doaCount = context.parsed.y || 0;
-                                const index = context.dataIndex || 0;
-                                const percentage = deathPercentages[index] || 0;
+                                const pct = context.parsed.y || 0;
+                                const farm = labels[ context.dataIndex ] || 'Unknown';
+                                const status = pct > 2 ? '🔴 High' : pct > 1 ? '🟠 Medium' : '🟢 Normal';
                                 return [
-                                    `DOA Count: ${new Intl.NumberFormat('en-US').format(doaCount)} birds`,
-                                    `Death Rate: ${percentage.toFixed(2)}%`,
-                                    `Truck: ${labels[index] || 'Unknown'}`
+                                    `Death %: ${ pct.toFixed( 2 ) }%`,
+                                    `Farm: ${ farm }`,
+                                    `Status: ${ status }`
                                 ];
                             }
                         }
                     },
                     datalabels: typeof ChartDataLabels !== 'undefined' ? {
-                        display: function(context) {
-                            // Always show labels
-                            return true;
-                        },
+                        display: true,
                         color: '#ffffff',
                         backgroundColor: function(context) {
-                            const doaCount = context.dataset.data[context.dataIndex] || 0;
-                            if (doaCount > 5) {
-                                return 'rgba(220, 38, 38, 0.95)'; // Red background
-                            }
-                            return 'rgba(5, 150, 105, 0.95)'; // Green background
+                            return borderColors[ context.dataIndex ];
                         },
                         borderColor: function(context) {
-                            const doaCount = context.dataset.data[context.dataIndex] || 0;
-                            if (doaCount > 5) {
-                                return 'rgba(185, 28, 28, 0.95)';
-                            }
-                            return 'rgba(4, 120, 87, 0.95)';
+                            return borderColors[ context.dataIndex ];
                         },
                         borderWidth: 2,
-                        borderRadius: 12, // Circular shape for lollipop head
-                        padding: {
-                            top: 6,
-                            bottom: 6,
-                            left: 10,
-                            right: 10
-                        },
-                        font: {
-                            size: 12, // Increased font size for better visibility
-                            weight: '600',
-                            family: "'Poppins', 'Inter', sans-serif"
-                        },
-                        anchor: 'end', // Position at end of lollipop
+                        borderRadius: 12,
+                        padding: { top: 5, bottom: 5, left: 8, right: 8 },
+                        font: { size: 11, weight: '600', family: "'Poppins', 'Inter', sans-serif" },
+                        anchor: 'end',
                         align: 'top',
-                        offset: function(context) {
-                            // Add offset to position label next to the lollipop head
-                            return 8; // Fixed offset for consistent positioning
-                        },
-                        clamp: true, // Keep labels within chart area
+                        offset: 8,
+                        clamp: true,
                         clip: false,
-                        formatter: function(value, context) {
-                            // Format as decimal with one decimal place
-                            return value.toFixed(1);
+                        formatter: function ( value ) {
+                            return value.toFixed( 2 ) + '%';
                         }
                     } : {}
                 },
                 scales: {
                     x: {
-                        // X-axis: Truck names (vertical bars)
-                        grid: {
-                            display: false
-                        },
+                        grid: { display: false },
                         ticks: {
-                            font: {
-                                size: 11,
-                                weight: '600',
-                                family: "'Poppins', 'Inter', sans-serif"
-                            },
+                            font: { size: 11, weight: '600', family: "'Poppins', 'Inter', sans-serif" },
                             color: '#4a5568',
-                            autoSkip: false, // Show all trucks
+                            autoSkip: false,
                             maxRotation: 45,
                             minRotation: 45
                         },
                         title: {
                             display: true,
-                            text: 'Truck',
-                            font: {
-                                size: 13,
-                                weight: '600',
-                                family: "'Poppins', 'Inter', sans-serif"
-                            },
+                            text: 'Farm',
+                            font: { size: 13, weight: '600', family: "'Poppins', 'Inter', sans-serif" },
                             color: '#1a1a1a',
                             padding: { top: 10 }
                         }
                     },
                     y: {
-                        // Y-axis: DOA Count
                         beginAtZero: true,
-                        max: Math.ceil(maxDOA * 1.2), // 20% padding at top
+                        max: Math.ceil( maxVal * 1.3 * 10 ) / 10,
                         grid: {
                             display: true,
-                            color: 'rgba(0, 0, 0, 0.05)',
+                            color: 'rgba(0,0,0,0.05)',
                             drawBorder: false
                         },
                         ticks: {
-                            font: {
-                                size: 11,
-                                weight: '600',
-                                family: "'Poppins', 'Inter', sans-serif"
-                            },
+                            font: { size: 11, weight: '600', family: "'Poppins', 'Inter', sans-serif" },
                             color: '#4a5568',
                             padding: 10,
                             callback: function(value) {
-                                return new Intl.NumberFormat('en-US').format(value);
+                                return value.toFixed( 1 ) + '%';
                             }
                         },
                         title: {
                             display: true,
-                            text: 'DOA Count',
-                            font: {
-                                size: 13,
-                                weight: '600',
-                                family: "'Poppins', 'Inter', sans-serif"
-                            },
+                            text: 'Death Percentage (%)',
+                            font: { size: 13, weight: '600', family: "'Poppins', 'Inter', sans-serif" },
                             color: '#1a1a1a',
                             padding: { bottom: 10 }
                         }
                     }
                 },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                },
-                onHover: function(event, activeElements) {
-                    if (activeElements.length > 0) {
-                        event.native.target.style.cursor = 'pointer';
-                    } else {
-                        event.native.target.style.cursor = 'default';
-                    }
-                }
+                interaction: { intersect: false, mode: 'index' }
             }
         });
 
         window.dashboardApp.chartInstances.deathByTruckChart = chart;
-        console.log('✅ Death Rate by Truck LOLLIPOP chart created successfully!');
-        console.log('=== createDeathByTruckChart END ===');
+        console.log( '✅ Death % by Farm lollipop chart created successfully!' );
     } catch (error) {
-        console.error('❌ Error creating death by truck lollipop chart:', error);
-        console.error('Error details:', error.stack);
+        console.error( '❌ Error creating death % by farm chart:', error );
         const wrapper = canvas.parentElement;
         if (wrapper) {
-            wrapper.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">
-                <i class="fas fa-exclamation-triangle"></i><br>
-                Chart Error: ${error.message}
+            wrapper.innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center;">
+                <i class="fas fa-exclamation-triangle"></i><br>Chart Error: ${ error.message}
             </div>`;
         }
     }

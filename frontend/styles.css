@@ -150,6 +150,95 @@ body {
     font-size: 12px;
 }
 
+/* Quick Day Filter — Custom Dropdown */
+.quick-filter-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.quick-filter-icon {
+    display: none;
+    /* not used anymore */
+}
+
+.quick-filter-btn {
+    padding: 8px 16px;
+    border: 1.5px solid rgba(0, 212, 255, 0.25);
+    background: rgba(0, 212, 255, 0.06);
+    color: var(--text-primary);
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: 'Poppins', sans-serif;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.08);
+    white-space: nowrap;
+}
+
+.quick-filter-btn:hover {
+    background: rgba(0, 212, 255, 0.12);
+    border-color: rgba(0, 212, 255, 0.4);
+    box-shadow: 0 4px 14px rgba(0, 212, 255, 0.18);
+    transform: translateY(-1px);
+}
+
+.quick-filter-arrow {
+    font-size: 10px;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+}
+
+.quick-filter-wrapper.open .quick-filter-arrow {
+    transform: rotate(180deg);
+}
+
+.quick-filter-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    background: #ffffff;
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    padding: 6px;
+    list-style: none;
+    z-index: 2000;
+    min-width: 100%;
+    animation: calFadeIn 0.15s ease-out;
+}
+
+.quick-filter-wrapper.open .quick-filter-menu {
+    display: block;
+}
+
+.quick-filter-menu li {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'Poppins', sans-serif;
+    color: var(--text-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+
+.quick-filter-menu li:hover {
+    background: rgba(0, 212, 255, 0.08);
+    color: var(--accent-teal);
+}
+
+.quick-filter-menu li.selected {
+    background: linear-gradient(135deg, var(--accent-teal), var(--accent-purple));
+    color: #ffffff;
+}
 /* Date Filter Buttons */
 .date-filter-group {
     display: flex;
@@ -552,22 +641,22 @@ body {
 /* KPI Cards - Professional White Design */
 .kpi-cards {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 24px;
     margin-bottom: 40px;
 }
 
-/* On medium screens, use 3 columns */
-@media (max-width: 1200px) {
+/* On tablets, use 2 columns */
+@media (max-width: 900px) {
     .kpi-cards {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 
-/* On tablets, use 2 columns */
-@media (max-width: 768px) {
+/* On mobile, use 1 column */
+@media (max-width: 560px) {
     .kpi-cards {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
     }
 }
 

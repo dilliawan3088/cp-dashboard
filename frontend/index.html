@@ -35,6 +35,18 @@
             </div>
         </div>
         <div class="filter-controls">
+            <!-- Quick Day Filter Dropdown (custom) -->
+            <div class="quick-filter-wrapper" id="quickFilterWrapper">
+                <button class="quick-filter-btn" id="quickFilterBtn">
+                    <span id="quickFilterLabel">1 Day</span>
+                    <i class="fas fa-chevron-down quick-filter-arrow"></i>
+                </button>
+                <ul class="quick-filter-menu" id="quickFilterMenu">
+                    <li data-days="1">1 Day</li>
+                    <li data-days="15">15 Days</li>
+                    <li data-days="30">30 Days</li>
+                </ul>
+            </div>
             <div class="date-filter-group">
                 <button class="date-filter-btn" id="fromDateBtn">
                     <i class="fas fa-calendar-alt"></i>
@@ -158,27 +170,7 @@
                     </div>
                 </div>
 
-                <div class="kpi-card kpi-success-alt">
-                    <div class="kpi-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="kpi-content">
-                        <h3>Total Slaughter</h3>
-                        <div class="kpi-value" id="totalSlaughter">0</div>
-                        <div class="kpi-label">Successfully Processed</div>
-                    </div>
-                </div>
 
-                <div class="kpi-card" id="slaughterYieldCard">
-                    <div class="kpi-icon">
-                        <i class="fas fa-chart-pie"></i>
-                    </div>
-                    <div class="kpi-content">
-                        <h3>Total Slaughter Percentage</h3>
-                        <div class="kpi-value" id="slaughterYieldPercentage">0.00%</div>
-                        <div class="kpi-label">Total Slaughter / Counted</div>
-                    </div>
-                </div>
 
                 <div class="kpi-card kpi-warning">
                     <div class="kpi-icon">
@@ -218,36 +210,36 @@
                     </div>
                 </div>
 
-                <!-- 3. Death Rate by Truck (Full Width) -->
+                <!-- 3. Death % by Farm (Full Width) -->
                 <div class="chart-container chart-large">
                     <div class="chart-header">
-                        <h3><i class="fas fa-skull"></i> Death Rate by Truck</h3>
-                        <p>DOA Count per Truck (Lollipop View)</p>
+                        <h3><i class="fas fa-skull"></i> Death % by Farm</h3>
+                        <p>Death Percentage per Farm — (DOA ÷ D/O Quantity) × 100</p>
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="deathByTruckChart" width="800" height="600"></canvas>
                     </div>
                 </div>
 
-                <!-- 4. Farm Performance (Half Width - Left) -->
-                <div class="chart-container">
+                <!-- 4. Farm Performance (Full Width) -->
+                <div class="chart-container chart-large">
                     <div class="chart-header">
                         <h3><i class="fas fa-warehouse"></i> Farm Performance</h3>
                         <p>Loss analysis by farm</p>
                     </div>
                     <div class="chart-wrapper">
-                        <canvas id="farmLossChart" width="400" height="350"></canvas>
+                        <canvas id="farmLossChart" width="800" height="400"></canvas>
                     </div>
                 </div>
 
-                <!-- 5. Truck Performance (Half Width - Right) -->
-                <div class="chart-container">
+                <!-- 5. Truck Performance (Full Width) -->
+                <div class="chart-container chart-large">
                     <div class="chart-header">
                         <h3><i class="fas fa-truck"></i> Truck Performance</h3>
                         <p>Loss analysis by truck</p>
                     </div>
                     <div class="chart-wrapper">
-                        <canvas id="truckLossChart" width="400" height="350"></canvas>
+                        <canvas id="truckLossChart" width="800" height="400"></canvas>
                     </div>
                 </div>
 

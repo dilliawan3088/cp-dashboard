@@ -114,12 +114,68 @@ document.addEventListener('DOMContentLoaded', async () => {
     initAnimatedBackground();
     initScrollHeader();
     initFilterControls();
+    initQuickFilter(); // Quick day filter buttons
     initUploadButton(); // Initialize upload button
     initDeleteCalendar(); // Initialize delete calendar
     initScrollAnimations(); // Add scroll animations
     initTruckAlertsPagination(); // Initialize pagination
     await autoLoadDashboard();
 });
+
+// Quick Day Filter — Custom Dropdown
+function initQuickFilter () {
+    const wrapper = document.getElementById( 'quickFilterWrapper' );
+    const btn = document.getElementById( 'quickFilterBtn' );
+    const menu = document.getElementById( 'quickFilterMenu' );
+    const label = document.getElementById( 'quickFilterLabel' );
+    if ( !wrapper || !btn || !menu ) return;
+
+    // Toggle menu open/close
+    btn.addEventListener( 'click', ( e ) => {
+        e.stopPropagation();
+        wrapper.classList.toggle( 'open' );
+    } );
+
+    // Handle item selection
+    menu.querySelectorAll( 'li' ).forEach( li => {
+        li.addEventListener( 'click', ( e ) => {
+            e.stopPropagation();
+            const days = parseInt( li.dataset.days, 10 );
+
+            // Update label and selected state
+            label.textContent = li.textContent;
+            menu.querySelectorAll( 'li' ).forEach( el => el.classList.remove( 'selected' ) );
+            li.classList.add( 'selected' );
+            wrapper.classList.remove( 'open' );
+
+            // Clear calendar date range
+            currentDateRange = null;
+            selectedFromDate = null;
+            selectedToDate = null;
+            updateDateLabels();
+
+            // Set filter mode
+            currentFilterDays = days;
+            isNewFileMode = ( days === 1 );
+
+            showLoading( `Loading data for last ${ days } day(s)...` );
+            if ( currentUploadId ) {
+                loadAndDisplayData( currentUploadId );
+            } else {
+                autoLoadDashboard();
+            }
+        } );
+    } );
+
+    // Mark first item as selected by default
+    const firstItem = menu.querySelector( 'li[data-days="1"]' );
+    if ( firstItem ) firstItem.classList.add( 'selected' );
+
+    // Close on outside click
+    document.addEventListener( 'click', () => {
+        wrapper.classList.remove( 'open' );
+    } );
+}
 
 // Initialize scroll animations for KPI cards and section headers
 function initScrollAnimations () {
@@ -426,6 +482,13 @@ function formatDateLabel ( dateStr ) {
 function applyDateRange () {
     console.log( `Applying date range: ${ selectedFromDate } to ${ selectedToDate }` );
     showLoading( `Loading data: ${ formatDateLabel( selectedFromDate ) } to ${ formatDateLabel( selectedToDate ) }...` );
+
+    // Reset quick filter to "1 Day" (calendar takes over)
+    const qLabel = document.getElementById( 'quickFilterLabel' );
+    if ( qLabel ) qLabel.textContent = '1 Day';
+    document.querySelectorAll( '#quickFilterMenu li' ).forEach( el => el.classList.remove( 'selected' ) );
+    const firstLi = document.querySelector( '#quickFilterMenu li[data-days="1"]' );
+    if ( firstLi ) firstLi.classList.add( 'selected' );
 
     if ( selectedFromDate === selectedToDate ) {
         // Single day: show only that upload's data (no aggregation)
